@@ -265,6 +265,8 @@ Nested dict (1 item long):
             'skull',
             'photo_camera',
             'unknown',
+            'none',
+            'error',
           ],
         },
         'A test schema for image identification response'
@@ -312,6 +314,8 @@ Nested dict (1 item long):
             'skull',
             'photo_camera',
             'unknown',
+            'none',
+            'error',
           ],
         },
         'A test schema for image identification response'

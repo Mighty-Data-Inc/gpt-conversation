@@ -116,6 +116,22 @@ describe("GptConversation", () => {
     ]);
   });
 
+  it("addImage appends a multi-modal message with text and image parts", () => {
+    const conversation = new GptConversation();
+    const imgDataUrl = "data:image/png;base64,abc123";
+
+    const returned = conversation.addImage("user", "Describe this.", imgDataUrl);
+
+    expect(returned).toBe(conversation);
+    expect(conversation[0]).toEqual({
+      role: "user",
+      content: [
+        { type: "input_text", text: "Describe this." },
+        { type: "input_image", image_url: imgDataUrl, detail: "high" },
+      ],
+    });
+  });
+
   it("submit throws if no openai client is configured", async () => {
     const conversation = new GptConversation([{ role: "user", content: "hello" }]);
 

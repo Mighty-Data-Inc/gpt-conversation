@@ -125,6 +125,28 @@ class GptConversation(list):
         """Add a developer message to the conversation."""
         return self.add_message("developer", content)
 
+    def add_image(self, role: str, text: str, image_data_url: str) -> "GptConversation":
+        """Add a multi-modal message containing text and an image to the conversation."""
+        self.append(
+            {
+                "role": role,
+                "content": [
+                    {"type": "input_text", "text": text},
+                    {
+                        "type": "input_image",
+                        "image_url": image_data_url,
+                        "detail": "high",
+                    },
+                ],
+            }
+        )
+        return self
+
+    def submit_image(self, role: str, text: str, image_data_url: str) -> Any:
+        """Add a multi-modal image message and submit it to the API."""
+        self.add_image(role, text, image_data_url)
+        return self.submit()
+
     def submit_message(self, role: str, content: Any) -> Any:
         """Add a message to the conversation and submit it."""
         self.add_message(role, content)

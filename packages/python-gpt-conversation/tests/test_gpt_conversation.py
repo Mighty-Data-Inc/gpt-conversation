@@ -155,6 +155,24 @@ class TestMessageManagement(GptConversationFrameworkBase):
         self.assertEqual(conversation[-1]["role"], "user")
         self.assertEqual(conversation[-1]["content"], '{\n  "a": 1\n}')
 
+    def test_add_image_appends_multimodal_message(self):
+        conversation = self.make_conversation(messages=[])
+        img_url = "data:image/png;base64,abc123"
+
+        returned = conversation.add_image("user", "Describe this.", img_url)
+
+        self.assertIs(returned, conversation)
+        self.assertEqual(
+            conversation[-1],
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Describe this."},
+                    {"type": "input_image", "image_url": img_url, "detail": "high"},
+                ],
+            },
+        )
+
     def test_add_message_preserves_list_content_for_multi_modal_messages(self):
         conversation = self.make_conversation(messages=[])
         parts = [
@@ -378,6 +396,30 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         self.assertEqual(
             mock_submit.call_args.kwargs["json_response"],
             explicit_json_response,
+        )
+
+    def test_submit_image_appends_multimodal_message_and_returns_reply(self):
+        client = self.make_client()
+        conversation = self.make_conversation(messages=[], client=client)
+        img_url = "data:image/png;base64,abc123"
+
+        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+            mock_submit.return_value = "Nice image!"
+            result = conversation.submit_image("user", "Describe this.", img_url)
+
+        self.assertEqual(result, "Nice image!")
+        self.assertEqual(
+            conversation[0],
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Describe this."},
+                    {"type": "input_image", "image_url": img_url, "detail": "high"},
+                ],
+            },
+        )
+        self.assertEqual(
+            conversation[1], {"role": "assistant", "content": "Nice image!"}
         )
 
     def test_submit_message_wrappers_add_role_and_return_reply(self):
