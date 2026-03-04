@@ -11,13 +11,13 @@ import {
 describe('JSONSchemaFormat', () => {
   it('expands object schema with primitive fields', () => {
     const result = JSONSchemaFormat(
-      'response',
       {
         title: 'Human-readable title',
         age: JSON_INTEGER,
         score: JSON_NUMBER,
         enabled: JSON_BOOLEAN,
       },
+      'response',
       'Structured response payload'
     );
 
@@ -43,7 +43,7 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('wraps non-object root schema with provided name', () => {
-    const result = JSONSchemaFormat('answer', JSON_STRING);
+    const result = JSONSchemaFormat(JSON_STRING, 'answer');
 
     expect(result).toEqual({
       format: {
@@ -63,9 +63,9 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports enum shorthand from string list', () => {
-    const result = JSONSchemaFormat('answer_enum', {
+    const result = JSONSchemaFormat({
       mode: ['fast', 'safe', 'balanced'],
-    });
+    }, 'answer_enum');
 
     expect(result).toEqual({
       format: {
@@ -88,9 +88,9 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports metadata tuple style for array bounds and item description', () => {
-    const result = JSONSchemaFormat('test_schema', {
+    const result = JSONSchemaFormat({
       tags: ['Tag collection', [1, 5], ['Single tag']],
-    });
+    }, 'test_schema');
 
     expect(result).toEqual({
       format: {
@@ -116,10 +116,10 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('infers integer and enum via tuple metadata', () => {
-    const result = JSONSchemaFormat('test_schema', {
+    const result = JSONSchemaFormat({
       age: ['Age in years', [0, 120], []],
       color: ['Preferred color', ['red', 'green', 'blue'], []],
-    });
+    }, 'test_schema');
 
     expect(result).toEqual({
       format: {
@@ -149,9 +149,9 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports number type with range metadata when explicitly marked', () => {
-    const result = JSONSchemaFormat('test_schema', {
+    const result = JSONSchemaFormat({
       confidence: ['Confidence score', [0.0, 1.0], JSON_NUMBER],
-    });
+    }, 'test_schema');
 
     expect(result).toEqual({
       format: {
@@ -176,10 +176,10 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports one-sided numeric bounds', () => {
-    const result = JSONSchemaFormat('test_schema', {
+    const result = JSONSchemaFormat({
       min_only: ['Minimum only', [0, null], []],
       max_only: ['Maximum only', [null, 10], []],
-    });
+    }, 'test_schema');
 
     expect(result).toEqual({
       format: {
@@ -208,7 +208,7 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports nested recursive schemas', () => {
-    const result = JSONSchemaFormat('nested_schema', {
+    const result = JSONSchemaFormat({
       groups: [
         {
           name: 'Group name',
@@ -225,7 +225,7 @@ describe('JSONSchemaFormat', () => {
           ],
         },
       ],
-    });
+    }, 'nested_schema');
 
     expect(result).toEqual({
       format: {
@@ -286,7 +286,7 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports nested recursive schemas with inner tuple metadata', () => {
-    const result = JSONSchemaFormat('nested_schema_with_metadata', {
+    const result = JSONSchemaFormat({
       groups: [
         {
           name: 'Group name',
@@ -309,7 +309,7 @@ describe('JSONSchemaFormat', () => {
           ],
         },
       ],
-    });
+    }, 'nested_schema_with_metadata');
 
     expect(result).toEqual({
       format: {
@@ -397,7 +397,7 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('throws for unsupported schema values', () => {
-    expect(() => JSONSchemaFormat('test_schema', { bad: Symbol('x') })).toThrow(
+    expect(() => JSONSchemaFormat({ bad: Symbol('x') }, 'test_schema')).toThrow(
       'Unrecognized type for schema value'
     );
   });

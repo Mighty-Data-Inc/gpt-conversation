@@ -47,12 +47,12 @@ console.log(reply);
 import { JSONSchemaFormat, JSON_INTEGER, gptSubmit } from '@mightydatainc/gpt-conversation';
 
 const responseFormat = JSONSchemaFormat(
-  'answer_payload',
   {
     answer: 'The final answer',
     confidence: ['Confidence score', [0, 100], []],
     rank: JSON_INTEGER,
   },
+  'answer_payload',
   'Structured answer payload'
 );
 

@@ -80,12 +80,13 @@ def JSONSchemaFormat(
     - Tuple parsing treats falsy values as placeholders for the schema value,
         which is convenient but can be ambiguous for some edge cases.
     - The function raises `ValueError` when it cannot infer a supported type.
-    - **Python vs TypeScript API difference:** In this Python package, ``name``
-        and ``description`` are keyword-only arguments (after the ``*``).
-        The equivalent TypeScript function accepts them as positional arguments
-        because TypeScript does not support keyword-only parameters.
-        Python callers must write ``JSONSchemaFormat(schema, name="...")``;
-        TypeScript callers write ``JSONSchemaFormat("name", schema, "desc")``.
+    - **Python vs TypeScript API difference:** Both packages use the same
+        argument order: ``(schema, name, description)``. However, in this
+        Python package ``name`` and ``description`` are keyword-only (after
+        the ``*``), so they must be passed by name:
+        ``JSONSchemaFormat(schema, name="...", description="...")``.  The
+        TypeScript version accepts the same positional order
+        ``(schema, name?, description?)`` but has no keyword-only enforcement.
 
     Args:
             schema: Compact schema DSL value to expand.

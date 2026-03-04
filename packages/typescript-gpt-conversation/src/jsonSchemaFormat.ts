@@ -212,8 +212,8 @@ function convertSchemaRecursive(subschema: unknown): Record<string, unknown> {
 }
 
 export function JSONSchemaFormat(
-  name: string,
   schema: unknown,
+  name?: string,
   description?: string
 ): JSONSchemaFormatResult {
   const result: JSONSchemaFormatResult = {
@@ -234,14 +234,15 @@ export function JSONSchemaFormat(
     result.format.description = description;
   }
 
+  const wrapKey = name ?? 'schema';
   let converted = convertSchemaRecursive(schema);
   if (converted.type !== 'object') {
     converted = {
       type: 'object',
-      required: [name],
+      required: [wrapKey],
       additionalProperties: false,
       properties: {
-        [name]: converted,
+        [wrapKey]: converted,
       },
     };
   }

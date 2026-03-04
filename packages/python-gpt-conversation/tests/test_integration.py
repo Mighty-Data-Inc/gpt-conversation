@@ -78,10 +78,12 @@ class TestIntegration(unittest.TestCase):
         convo = GptConversation([], openai_client=make_client())
 
         convo.add_user_message(
-            "This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.\n"
-            'If you can see this, please respond with "Hello World" -- just like that,\n'
-            "with no additional text or explanation. Do not include punctuation or quotation\n"
-            'marks. Emit only the words "Hello World", capitalized as shown.'
+            """
+This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.
+If you can see this, please respond with "Hello World" -- just like that,
+with no additional text or explanation. Do not include punctuation or quotation
+marks. Emit only the words "Hello World", capitalized as shown.
+"""
         )
         convo.submit()
 
@@ -92,13 +94,15 @@ class TestIntegration(unittest.TestCase):
 
         # Use the submit_user_message convenience method.
         convo.submit_user_message(
-            "I'm conducting a test of my REST API response parsing systems.\n"
-            "If you can see this, please reply with the capital of France.\n"
-            "Reply *only* with the name of the city, with no additional text, punctuation,\n"
-            "or explanation. I'll be comparing your output string to a standard known\n"
-            "value, so it's important to the integrity of my system that the *only*\n"
-            "response you produce be *just* the name of the city. Standard capitalization\n"
-            "please -- first letter capitalized, all other letters lower-case."
+            """
+I'm conducting a test of my REST API response parsing systems.
+If you can see this, please reply with the capital of France.
+Reply *only* with the name of the city, with no additional text, punctuation,
+or explanation. I'll be comparing your output string to a standard known
+value, so it's important to the integrity of my system that the *only*
+response you produce be *just* the name of the city. Standard capitalization
+please -- first letter capitalized, all other letters lower-case.
+"""
         )
 
         self.assertEqual(convo.get_last_reply_str(), "Paris")
@@ -107,13 +111,17 @@ class TestIntegration(unittest.TestCase):
         convo = GptConversation([], openai_client=make_client())
 
         convo.add_user_message(
-            "This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.\n\n"
-            "Please reply with the following JSON object, exactly as shown:\n\n"
-            "{\n"
-            '  "text": "Hello World",\n'
-            '  "success": true,\n'
-            '  "sample_array_data": [1, 2, {"nested_key": "nested_value"}]\n'
-            "}"
+            """
+This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.
+
+Please reply with the following JSON object, exactly as shown:
+
+{
+  "text": "Hello World",
+  "success": true,
+  "sample_array_data": [1, 2, {"nested_key": "nested_value"}]
+}
+"""
         )
         convo.submit(json_response=True)
 
@@ -168,14 +176,17 @@ class TestIntegration(unittest.TestCase):
         }
 
         convo.add_user_message(
-            "Please reply with a JSON object that contains the following data:\n\n"
-            "Success flag: true\n"
-            'Text: "Hello World"\n'
-            "Sample array data (2 elements long):\n"
-            "    Element 0: 5\n"
-            "    Element 1: 33\n"
-            "Nested dict (1 item long):\n"
-            '    Value under "nested_key": "foobar"'
+            """
+Please reply with a JSON object that contains the following data:
+
+Success flag: true
+Text: "Hello World"
+Sample array data (2 elements long):
+    Element 0: 5
+    Element 1: 33
+Nested dict (1 item long):
+    Value under "nested_key": "foobar"
+"""
         )
         convo.submit(json_response=schema)
 
@@ -195,7 +206,9 @@ class TestIntegration(unittest.TestCase):
         convo = GptConversation([], openai_client=make_client())
 
         schema = JSONSchemaFormat(
+            {
                 "success": bool,
+                "text": str,
                 "sample_array_data": [int],
                 "nested_dict": {
                     "nested_key": str,
@@ -206,14 +219,17 @@ class TestIntegration(unittest.TestCase):
         )
 
         convo.add_user_message(
-            "Please reply with a JSON object that contains the following data:\n\n"
-            "Success flag: true\n"
-            'Text: "Hello World"\n'
-            "Sample array data (2 elements long):\n"
-            "    Element 0: 5\n"
-            "    Element 1: 33\n"
-            "Nested dict (1 item long):\n"
-            '    Value under "nested_key": "foobar"'
+            """
+Please reply with a JSON object that contains the following data:
+
+Success flag: true
+Text: "Hello World"
+Sample array data (2 elements long):
+    Element 0: 5
+    Element 1: 33
+Nested dict (1 item long):
+    Value under "nested_key": "foobar"
+"""
         )
         convo.submit(json_response=schema)
 

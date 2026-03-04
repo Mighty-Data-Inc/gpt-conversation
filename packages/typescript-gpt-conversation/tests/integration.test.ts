@@ -21,6 +21,33 @@ const createClient = (): OpenAI =>
     apiKey: OPENAI_API_KEY,
   });
 
+const IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
+    {
+        "image_subject_enum": [
+            "house",
+            "chair",
+            "boat",
+            "car",
+            "cat",
+            "dog",
+            "telephone",
+            "duck",
+            "city_skyline",
+            "still_life",
+            "bed",
+            "headphones",
+            "skull",
+            "photo_camera",
+            "unknown",
+            "none",
+            "error",
+        ],
+    },
+    'ImageIdentification',
+    'A test schema for image identification response'
+)
+
+
 describe('integration tests (live API)', () => {
   it('should repeat Hello World', async () => {
     const openaiClient = createClient();
@@ -168,7 +195,6 @@ Nested dict (1 item long):
     const convo = new GptConversation([], { openaiClient });
 
     const schema = JSONSchemaFormat(
-      'TestSchema',
       {
         text: String,
         success: Boolean,
@@ -177,6 +203,7 @@ Nested dict (1 item long):
           nested_key: String,
         },
       },
+      'TestSchema',
       'A test schema for structured JSON response'
     );
 
@@ -246,31 +273,7 @@ Nested dict (1 item long):
     convo.addUserMessage('What is this a picture of?');
 
     await convo.submit(undefined, undefined, {
-      jsonResponse: JSONSchemaFormat(
-        'ImageIdentification',
-        {
-          image_subject_enum: [
-            'house',
-            'chair',
-            'boat',
-            'car',
-            'cat',
-            'dog',
-            'telephone',
-            'duck',
-            'city_skyline',
-            'still_life',
-            'bed',
-            'headphones',
-            'skull',
-            'photo_camera',
-            'unknown',
-            'none',
-            'error',
-          ],
-        },
-        'A test schema for image identification response'
-      ),
+      jsonResponse: IMAGE_IDENTIFICATION_SCHEMA,
     });
 
     expect(convo.getLastReplyDictField('image_subject_enum')).toBe('cat');
@@ -295,31 +298,7 @@ Nested dict (1 item long):
     convo.addUserMessage('What is this a picture of?');
 
     await convo.submit(undefined, undefined, {
-      jsonResponse: JSONSchemaFormat(
-        'ImageIdentification',
-        {
-          image_subject_enum: [
-            'house',
-            'chair',
-            'boat',
-            'car',
-            'cat',
-            'dog',
-            'telephone',
-            'duck',
-            'city_skyline',
-            'still_life',
-            'bed',
-            'headphones',
-            'skull',
-            'photo_camera',
-            'unknown',
-            'none',
-            'error',
-          ],
-        },
-        'A test schema for image identification response'
-      ),
+      jsonResponse: IMAGE_IDENTIFICATION_SCHEMA,
     });
 
     expect(convo.getLastReplyDictField('image_subject_enum')).toBe('cat');
