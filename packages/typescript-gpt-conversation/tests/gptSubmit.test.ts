@@ -4,7 +4,7 @@ import {
   GPT_MODEL_SMART,
   gptSubmit,
   type OpenAIClientLike,
-} from "../../src/functions.js";
+} from "../src/functions.js";
 
 class FakeResponse {
   output_text: any;

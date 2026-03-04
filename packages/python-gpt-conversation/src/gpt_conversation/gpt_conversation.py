@@ -100,11 +100,12 @@ class GptConversation(list):
     def add_message(self, role: str, content: Any) -> "GptConversation":
         """Add a message to the conversation."""
         if not isinstance(content, str):
-            content = (
-                json.dumps(content, indent=2)
-                if isinstance(content, dict)
-                else str(content)
-            )
+            if isinstance(content, list):
+                pass  # preserve multi-modal array content as-is
+            elif isinstance(content, dict):
+                content = json.dumps(content, indent=2)
+            else:
+                content = str(content)
         self.append({"role": role, "content": content})
         return self
 

@@ -155,6 +155,21 @@ class TestMessageManagement(GptConversationFrameworkBase):
         self.assertEqual(conversation[-1]["role"], "user")
         self.assertEqual(conversation[-1]["content"], '{\n  "a": 1\n}')
 
+    def test_add_message_preserves_list_content_for_multi_modal_messages(self):
+        conversation = self.make_conversation(messages=[])
+        parts = [
+            {"type": "input_text", "text": "hi"},
+            {
+                "type": "input_image",
+                "image_url": "data:image/png;base64,abc",
+                "detail": "high",
+            },
+        ]
+
+        conversation.add_message("user", parts)
+
+        self.assertEqual(conversation[-1], {"role": "user", "content": parts})
+
     def test_add_message_converts_non_str_non_dict_with_str(self):
         conversation = self.make_conversation(messages=[])
 
@@ -304,6 +319,41 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         self.assertEqual(
             conversation[-1],
             {"role": "assistant", "content": '{\n  "ok": true\n}'},
+        )
+
+    def test_submit_with_dict_message_passes_through_array_content(self):
+        client = self.make_client()
+        conversation = self.make_conversation(messages=[], client=client)
+        img_data_url = "data:image/png;base64,abc123"
+        message = {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": "Hello World. Here's an image."},
+                {"type": "input_image", "image_url": img_data_url, "detail": "high"},
+            ],
+        }
+
+        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+            mock_submit.return_value = "Nice image!"
+            result = conversation.submit(message=message, role=None)
+
+        self.assertEqual(result, "Nice image!")
+        self.assertEqual(
+            conversation[0],
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Hello World. Here's an image."},
+                    {
+                        "type": "input_image",
+                        "image_url": img_data_url,
+                        "detail": "high",
+                    },
+                ],
+            },
+        )
+        self.assertEqual(
+            conversation[1], {"role": "assistant", "content": "Nice image!"}
         )
 
     def test_submit_with_dict_message_respects_explicit_json_response(self):

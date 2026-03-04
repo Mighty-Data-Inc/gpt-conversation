@@ -6,7 +6,7 @@ import {
 
 export interface ConversationMessage {
   role: string;
-  content: string | unknown;
+  content: string | unknown[];
 }
 
 export interface GptConversationOptions {
@@ -95,6 +95,8 @@ export class GptConversation extends Array<ConversationMessage> {
     let jsonResponse = options.jsonResponse;
 
     if (message) {
+      let contentToAdd: unknown = message;
+
       if (isRecord(message)) {
         if (!jsonResponse && 'format' in message) {
           jsonResponse = message;
@@ -105,11 +107,11 @@ export class GptConversation extends Array<ConversationMessage> {
         }
 
         if ('content' in message) {
-          message = String(message.content ?? '');
+          contentToAdd = message.content ?? '';
         }
       }
 
-      this.addMessage(role || 'user', message);
+      this.addMessage(role || 'user', contentToAdd);
     }
 
     const llmReply = await gptSubmit(this.toDictList(), this.openaiClient, {
@@ -123,8 +125,10 @@ export class GptConversation extends Array<ConversationMessage> {
   }
 
   addMessage(role: string, content: unknown): this {
-    let normalizedContent: string;
+    let normalizedContent: string | unknown[];
     if (typeof content === 'string') {
+      normalizedContent = content;
+    } else if (Array.isArray(content)) {
       normalizedContent = content;
     } else if (isRecord(content)) {
       normalizedContent = JSON.stringify(content, null, 2);

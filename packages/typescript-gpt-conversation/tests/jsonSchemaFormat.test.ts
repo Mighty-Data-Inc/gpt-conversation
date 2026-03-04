@@ -6,7 +6,7 @@ import {
   JSON_NUMBER,
   JSON_STRING,
   JSONSchemaFormat,
-} from '../../src/jsonSchemaFormat.js';
+} from '../src/jsonSchemaFormat.js';
 
 describe('JSONSchemaFormat', () => {
   it('expands object schema with primitive fields', () => {

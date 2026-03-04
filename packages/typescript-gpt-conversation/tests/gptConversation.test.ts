@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { GptConversation } from "../../src/gptConversation.js";
+import { GptConversation } from "../src/gptConversation.js";
 
 class FakeResponse {
   output_text: any;
@@ -155,6 +155,32 @@ describe("GptConversation", () => {
     expect(conversation[1]).toEqual({ role: "assistant", content: '{\n  "ok": true\n}' });
   });
 
+  it("submit passes through array content for multi-modal messages", async () => {
+    const client = new FakeOpenAIClient([new FakeResponse("Nice image!")]);
+    const conversation = new GptConversation([], { openaiClient: client as any });
+
+    const imgDataUrl = "data:image/png;base64,abc123";
+    const message = {
+      role: "user",
+      content: [
+        { type: "input_text", text: "Hello World. Here's an image." },
+        { type: "input_image", image_url: imgDataUrl, detail: "high" },
+      ],
+    };
+
+    const result = await conversation.submit(message, null);
+
+    expect(result).toBe("Nice image!");
+    expect(conversation[0]).toEqual({
+      role: "user",
+      content: [
+        { type: "input_text", text: "Hello World. Here's an image." },
+        { type: "input_image", image_url: imgDataUrl, detail: "high" },
+      ],
+    });
+    expect(conversation[1]).toEqual({ role: "assistant", content: "Nice image!" });
+  });
+
   it("submit wrapper methods add role and return reply", async () => {
     const client = new FakeOpenAIClient([
       new FakeResponse("r1"),
@@ -183,7 +209,10 @@ describe("GptConversation", () => {
   it("lastReply accessors enforce expected types", () => {
     const conversation = new GptConversation();
 
+    // NOTE: This is something we should never do in practice.
+    // We should never directly set lastReply in a GptConversation object.
     conversation.lastReply = "hello";
+
     expect(conversation.getLastReplyStr()).toBe("hello");
     expect(conversation.getLastReplyDict()).toEqual({});
 
