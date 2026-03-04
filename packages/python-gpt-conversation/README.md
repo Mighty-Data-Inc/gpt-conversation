@@ -1,11 +1,11 @@
-# gpt-conversation
+# mightydatainc-gpt-conversation
 
 Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
 
 ## Installation
 
 ```bash
-pip install gpt-conversation
+pip install mightydatainc-gpt-conversation
 ```
 
 ## Quick Start

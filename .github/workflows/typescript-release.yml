@@ -4,11 +4,11 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "packages/typescript-mdi-llmkit/**"
+      - "packages/typescript-gpt-conversation/**"
       - ".github/workflows/typescript-release.yml"
   pull_request:
     paths:
-      - "packages/typescript-mdi-llmkit/**"
+      - "packages/typescript-gpt-conversation/**"
       - ".github/workflows/typescript-release.yml"
   workflow_dispatch:
 
@@ -27,7 +27,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: packages/typescript-mdi-llmkit
+        working-directory: packages/typescript-gpt-conversation
 
     steps:
       - name: Checkout
@@ -41,7 +41,7 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
           cache: "npm"
-          cache-dependency-path: packages/typescript-mdi-llmkit/package-lock.json
+          cache-dependency-path: packages/typescript-gpt-conversation/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -65,7 +65,7 @@ jobs:
 
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             SHOULD_PUBLISH=true
-            PREVIOUS_VERSION=$(git show HEAD~1:packages/typescript-mdi-llmkit/package.json 2>/dev/null | node -p "const fs=require('fs'); const s=fs.readFileSync(0,'utf8'); JSON.parse(s).version" || true)
+            PREVIOUS_VERSION=$(git show HEAD~1:packages/typescript-gpt-conversation/package.json 2>/dev/null | node -p "const fs=require('fs'); const s=fs.readFileSync(0,'utf8'); JSON.parse(s).version" || true)
           fi
 
           if [ -z "${PREVIOUS_VERSION}" ]; then
@@ -92,7 +92,7 @@ jobs:
           fi
 
           VERSION="${{ steps.version.outputs.current }}"
-          if npm view "mdi-llmkit@${VERSION}" version >/dev/null 2>&1; then
+          if npm view "@mightydatainc/gpt-conversation@${VERSION}" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"

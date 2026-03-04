@@ -15,8 +15,8 @@ This is not a framework — just a clean, reusable toolkit for the parts of LLM 
 
 ## Packages
 
-- TypeScript: `@mdi/gpt-conversation` (npm) in `packages/typescript-gpt-conversation`
-- Python: `gpt-conversation` (PyPI, import as `gpt_conversation`) in `packages/python-gpt-conversation`
+- TypeScript: `@mightydatainc/gpt-conversation` (npm) in `packages/typescript-gpt-conversation`
+- Python: `mightydatainc-gpt-conversation` (PyPI, import as `gpt_conversation`) in `packages/python-gpt-conversation`
 
 Package-specific docs:
 
@@ -47,7 +47,7 @@ print(reply)
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from '@mdi/gpt-conversation';
+import { GptConversation } from '@mightydatainc/gpt-conversation';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const conversation = new GptConversation([], { openaiClient: client });
@@ -97,8 +97,8 @@ Deterministic assertions are still intentional here: tests are written with tigh
 
 This repo ships two public packages with aligned versions:
 
-- npm: `@mdi/gpt-conversation` from `packages/typescript-gpt-conversation`
-- PyPI: `gpt-conversation` from `packages/python-gpt-conversation`
+- npm: `@mightydatainc/gpt-conversation` from `packages/typescript-gpt-conversation`
+- PyPI: `mightydatainc-gpt-conversation` from `packages/python-gpt-conversation`
 
 GitHub release automation publishes each package automatically on push to `main`
 when its package version changes:

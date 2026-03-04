@@ -1,11 +1,11 @@
-# @mdi/gpt-conversation
+# @mightydatainc/gpt-conversation
 
 Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
 
 ## Installation
 
 ```bash
-npm install @mdi/gpt-conversation openai
+npm install @mightydatainc/gpt-conversation openai
 ```
 
 ## Quick Start
@@ -14,7 +14,7 @@ npm install @mdi/gpt-conversation openai
 
 ```ts
 import OpenAI from 'openai';
-import { gptSubmit } from '@mdi/gpt-conversation';
+import { gptSubmit } from '@mightydatainc/gpt-conversation';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -30,7 +30,7 @@ console.log(reply);
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from '@mdi/gpt-conversation';
+import { GptConversation } from '@mightydatainc/gpt-conversation';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const conversation = new GptConversation([], { openaiClient: client });
@@ -44,7 +44,7 @@ console.log(reply);
 ### `JSONSchemaFormat`
 
 ```ts
-import { JSONSchemaFormat, JSON_INTEGER, gptSubmit } from '@mdi/gpt-conversation';
+import { JSONSchemaFormat, JSON_INTEGER, gptSubmit } from '@mightydatainc/gpt-conversation';
 
 const responseFormat = JSONSchemaFormat(
   'answer_payload',
@@ -67,7 +67,7 @@ const result = await gptSubmit(
 
 ```ts
 import OpenAI from 'openai';
-import { gptSubmit } from '@mdi/gpt-conversation';
+import { gptSubmit } from '@mightydatainc/gpt-conversation';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
