@@ -2,27 +2,11 @@
 
 All notable changes to this package will be documented in this file.
 
-## 1.1.3 - 2026-03-01
+## 1.1.1 - 2026-03-04
 
-- No TypeScript runtime/API behavior changes in this cycle.
-- Removed a unit test with an incorrect expectation in `tests/semanticMatch/compareLists.test.ts`.
+- Initial release as a standalone package, split out from the mdi-llmkit monorepo.
+- Includes `gptSubmit`, `GptConversation`, and `JSONSchemaFormat`.
 
-## 1.1.2 - 2026-03-01
-
-- No TypeScript runtime/API behavior changes in this cycle.
-- Python package received semantic-match porting updates (`semantic_match` source + parity tests) to align cross-language feature coverage.
-
-## 1.1.1 - 2026-02-28
-
-- Renamed public semantic diff subpath from `mdi-llmkit/comparison` to `mdi-llmkit/semanticMatch`.
-- Renamed internal source/test module paths from `comparison` to `semanticMatch`.
-- Marked as a clean breaking change (no compatibility alias for the old subpath).
-
-## 1.1.0 - 2026-02-28
-
-- Added explicit subpath exports for `mdi-llmkit/jsonSurgery` and `mdi-llmkit/semanticMatch` via dedicated index barrels.
-- Standardized `jsonSurgery` export mapping to `dist/src/jsonSurgery/index.{js,d.ts}` for consistent subpath packaging.
-- Removed root-level convenience re-exports so consumers now import APIs via subpaths only (`mdi-llmkit/gptApi`, `mdi-llmkit/jsonSurgery`, `mdi-llmkit/semanticMatch`).
 
 ## 1.0.6 - 2026-02-27
 

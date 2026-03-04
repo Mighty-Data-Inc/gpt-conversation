@@ -9,7 +9,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mdi_llmkit.gpt_api.functions import current_datetime_system_message
+from gpt_conversation.functions import current_datetime_system_message
 
 
 class FunctionsTests(unittest.TestCase):

@@ -62,7 +62,7 @@ console.log(reply);
 From `packages/python-gpt-conversation`, activate the package venv and run tests:
 
 ```powershell
-.\venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -c "import sys; print(sys.executable)"
 python -m unittest discover -v -s tests
 ```
@@ -114,6 +114,6 @@ Before publishing, ensure both versions are updated (`package.json` and `pyproje
 After publish, tag and push a release tag (example):
 
 ```powershell
-git tag v1.1.3
-git push origin v1.1.3
+git tag v1.1.1
+git push origin v1.1.1
 ```

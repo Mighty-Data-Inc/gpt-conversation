@@ -15,7 +15,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mdi_llmkit.gpt_api.functions import GPT_MODEL_SMART, gpt_submit
+from gpt_conversation.functions import GPT_MODEL_SMART, gpt_submit
 
 
 class FakeResponse:
@@ -204,7 +204,7 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
         )
         warnings: List[str] = []
 
-        with patch("mdi_llmkit.gpt_api.functions.time.sleep") as mock_sleep:
+        with patch("gpt_conversation.functions.time.sleep") as mock_sleep:
             result = self.call_submit(
                 client,
                 retry_limit=2,
@@ -225,7 +225,7 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
             openai.OpenAIError("still failing"),
         )
 
-        with patch("mdi_llmkit.gpt_api.functions.time.sleep"):
+        with patch("gpt_conversation.functions.time.sleep"):
             with self.assertRaises(openai.OpenAIError):
                 self.call_submit(client, retry_limit=2, retry_backoff_time_seconds=0)
 
@@ -269,7 +269,7 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
         )
         client = self.make_client(auth_error)
 
-        with patch("mdi_llmkit.gpt_api.functions.time.sleep") as mock_sleep:
+        with patch("gpt_conversation.functions.time.sleep") as mock_sleep:
             with self.assertRaises(openai.AuthenticationError):
                 self.call_submit(client, retry_limit=5, retry_backoff_time_seconds=30)
 
@@ -284,7 +284,7 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
         )
         client = self.make_client(perm_error)
 
-        with patch("mdi_llmkit.gpt_api.functions.time.sleep") as mock_sleep:
+        with patch("gpt_conversation.functions.time.sleep") as mock_sleep:
             with self.assertRaises(openai.PermissionDeniedError):
                 self.call_submit(client, retry_limit=5, retry_backoff_time_seconds=30)
 
@@ -299,7 +299,7 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
         conn_error.__cause__ = local_proto_exc
         client = self.make_client(conn_error)
 
-        with patch("mdi_llmkit.gpt_api.functions.time.sleep") as mock_sleep:
+        with patch("gpt_conversation.functions.time.sleep") as mock_sleep:
             with self.assertRaises(openai.APIConnectionError):
                 self.call_submit(client, retry_limit=5, retry_backoff_time_seconds=30)
 

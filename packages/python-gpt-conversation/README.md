@@ -87,7 +87,7 @@ print(result)
 From `packages/python-gpt-conversation`, activate the package venv and run tests:
 
 ```powershell
-.\venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -c "import sys; print(sys.executable)"
 python -m unittest discover -v -s tests
 ```

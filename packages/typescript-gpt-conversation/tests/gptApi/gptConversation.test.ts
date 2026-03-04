@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { GptConversation } from "../../src/gptApi/gptConversation.js";
+import { GptConversation } from "../../src/gptConversation.js";
 
 class FakeResponse {
   output_text: any;
