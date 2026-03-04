@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
 
-    environment: env-mdi-llmkit
+    environment: env-cicd
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       TWINE_USERNAME: __token__

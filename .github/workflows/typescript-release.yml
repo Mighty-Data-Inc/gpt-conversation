@@ -20,7 +20,7 @@ jobs:
       contents: read
       id-token: write
 
-    environment: env-mdi-llmkit
+    environment: env-cicd
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
