@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.3.0 - 2026-03-04
+
+- **Breaking:** Renamed the importable package from `gpt_conversation` to `mightydatainc_gpt_conversation` to match the PyPI distribution name convention. Clients must update imports to `from mightydatainc_gpt_conversation import ...`.
+
 ## 1.2.0 - 2026-03-04
 
 - Fixed syntax error in `test_integration.py` where the opening `{` was missing from the `JSONSchemaFormat` dict argument.

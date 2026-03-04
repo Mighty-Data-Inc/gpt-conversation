@@ -21,9 +21,9 @@ load_dotenv(ROOT / ".env")
 
 from openai import OpenAI
 
-from gpt_conversation.functions import GPT_MODEL_VISION
-from gpt_conversation.gpt_conversation import GptConversation
-from gpt_conversation.json_schema_format import JSONSchemaFormat
+from mightydatainc_gpt_conversation.functions import GPT_MODEL_VISION
+from mightydatainc_gpt_conversation.gpt_conversation import GptConversation
+from mightydatainc_gpt_conversation.json_schema_format import JSONSchemaFormat
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 if not OPENAI_API_KEY:
