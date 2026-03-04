@@ -37,8 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: packages/typescript-gpt-conversation/package-lock.json
 

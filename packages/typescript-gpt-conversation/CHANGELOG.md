@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.3.3 - 2026-03-04
+
+- Version bump to trigger CI/CD and resolve npm trusted publishing (OIDC) issue for scoped packages. Fixed by upgrading to Node 24 and removing `registry-url` from the workflow, which was injecting a conflicting auth token.
+
 ## 1.3.2 - 2026-03-04
 
 - Fixed npm publish workflow to remove stale `NPM_TOKEN` that was overriding the OIDC trusted publisher authentication.
