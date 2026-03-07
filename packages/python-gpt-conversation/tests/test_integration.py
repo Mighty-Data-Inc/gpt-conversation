@@ -5,6 +5,7 @@ They are intentionally slow and make real API calls.
 """
 
 import base64
+import json
 import os
 import sys
 import unittest
@@ -287,6 +288,72 @@ Nested dict (1 item long):
         convo.submit(json_response=IMAGE_IDENTIFICATION_SCHEMA)
 
         self.assertEqual(convo.get_last_reply_dict_field("image_subject_enum"), "cat")
+
+    def test_shotgun_on_unreliable_answer(self):
+        """Intentionally flaky without shotgun: LLMs miscount repeated letters.
+        Run several times to confirm intermittent failures before enabling shotgun."""
+        convo = GptConversation([], openai_client=make_client())
+
+        convo.add_developer_message(
+            """
+Count the number of times each letter of the alphabet appears in a key phrase
+that the user will give you.
+
+Ignore spaces, and treat all letters as lowercase for counting purposes.
+Do not count any characters other than the 26 letters of the English alphabet.
+
+Return a JSON object where each key is a lowercase letter and each
+value is the integer count of that letter. Include only letters that appear at least
+once. Emit nothing except the JSON object. E.g. it should look like this:
+
+{
+  "a": 99,
+  "b": 99,
+  "c": 99,
+  ...
+}
+
+Except, of course, with the correct counts for the letters instead of "99".
+Your response should include all 26 keys, appearing in order from "a" to "z",
+even if the count for some letters is zero.
+"""
+        )
+        convo.add_user_message("strawberry milkshake")
+        convo.submit(json_response=True, shotgun=6)
+
+        reply = convo.get_last_reply_dict()
+        print(json.dumps(reply, indent=2))
+
+        # Make sure it has 26 keys.
+        self.assertEqual(len(reply), 26)
+
+        # strawberry milkshake
+        # s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)
+        self.assertEqual(reply.get("a"), 2)
+        self.assertEqual(reply.get("b"), 1)
+        self.assertEqual(reply.get("c"), 0)
+        self.assertEqual(reply.get("d"), 0)
+        self.assertEqual(reply.get("e"), 2)
+        self.assertEqual(reply.get("f"), 0)
+        self.assertEqual(reply.get("g"), 0)
+        self.assertEqual(reply.get("h"), 1)
+        self.assertEqual(reply.get("i"), 1)
+        self.assertEqual(reply.get("k"), 2)
+        self.assertEqual(reply.get("l"), 1)
+        self.assertEqual(reply.get("m"), 1)
+        self.assertEqual(reply.get("n"), 0)
+        self.assertEqual(reply.get("o"), 0)
+        self.assertEqual(reply.get("p"), 0)
+        self.assertEqual(reply.get("q"), 0)
+        self.assertEqual(reply.get("r"), 3)
+        self.assertEqual(reply.get("s"), 2)
+        self.assertEqual(reply.get("t"), 1)
+        self.assertEqual(reply.get("u"), 0)
+        self.assertEqual(reply.get("v"), 0)
+        self.assertEqual(reply.get("w"), 1)
+        self.assertEqual(reply.get("x"), 0)
+        self.assertEqual(reply.get("y"), 1)
+        self.assertEqual(reply.get("z"), 0)
 
 
 if __name__ == "__main__":
