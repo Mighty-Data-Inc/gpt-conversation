@@ -85,8 +85,6 @@ class GPTSubmitFrameworkBase(unittest.TestCase):
 
 
 class TestDefaultsAndInputShaping(GPTSubmitFrameworkBase):
-    """Placeholder group for default model and request-shaping coverage."""
-
     def test_uses_default_model_and_omits_text_config_when_json_not_requested(self):
         client = self.make_client(self.make_response(output_text="ok"))
 
@@ -113,8 +111,6 @@ class TestDefaultsAndInputShaping(GPTSubmitFrameworkBase):
 
 
 class TestSystemMessageBehavior(GPTSubmitFrameworkBase):
-    """Placeholder group for datetime and announcement system-message behavior."""
-
     def test_replaces_existing_datetime_system_message(self):
         self.messages = [
             {"role": "system", "content": "!DATETIME: stale timestamp"},
@@ -158,8 +154,6 @@ class TestSystemMessageBehavior(GPTSubmitFrameworkBase):
 
 
 class TestResponseHandling(GPTSubmitFrameworkBase):
-    """Placeholder group for plain-text and JSON response parsing behavior."""
-
     def test_returns_stripped_text_for_non_json_mode(self):
         client = self.make_client(self.make_response(output_text="   hello world\n\n"))
 
@@ -195,8 +189,6 @@ class TestResponseHandling(GPTSubmitFrameworkBase):
 
 
 class TestRetryBehavior(GPTSubmitFrameworkBase):
-    """Placeholder group for retry logic and terminal error propagation."""
-
     def test_retries_after_openai_error_and_then_succeeds(self):
         client = self.make_client(
             openai.OpenAIError("temporary failure"),
@@ -308,8 +300,6 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
 
 
 class TestJsonModes(GPTSubmitFrameworkBase):
-    """Placeholder group for json_response mode handling."""
-
     def test_warning_callback_receives_response_error_and_incomplete_detail_messages(
         self,
     ):
@@ -420,6 +410,89 @@ class TestJsonModes(GPTSubmitFrameworkBase):
             self.call_submit(client, json_response="{not valid json")
 
         self.assertEqual(client.responses.create_calls, [])
+
+
+class TestShotgun(GPTSubmitFrameworkBase):
+    def test_api_calls_increase_linearly_with_shotgun_count(self):
+        client = self.make_client()
+        self.call_submit(client, shotgun=3)
+        num_api_calls_with_shotgun_3 = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=6)
+        num_api_calls_with_shotgun_6 = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=9)
+        num_api_calls_with_shotgun_9 = len(client.responses.create_calls)
+
+        # Confirm that it's a linear increase.
+        # Verify that f(9) - f(6) == f(6) - f(3)
+        self.assertEqual(
+            num_api_calls_with_shotgun_9 - num_api_calls_with_shotgun_6,
+            num_api_calls_with_shotgun_6 - num_api_calls_with_shotgun_3,
+        )
+
+    def test_shotgun_0_is_same_as_no_shotgun(self):
+        client = self.make_client()
+        self.call_submit(client)
+        num_api_calls_with_no_shotgun = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=0)
+        num_api_calls_with_shotgun_0 = len(client.responses.create_calls)
+
+        self.assertEqual(num_api_calls_with_no_shotgun, num_api_calls_with_shotgun_0)
+
+    def test_shotgun_1_is_same_as_no_shotgun(self):
+        client = self.make_client()
+        self.call_submit(client)
+        num_api_calls_with_no_shotgun = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=1)
+        num_api_calls_with_shotgun_1 = len(client.responses.create_calls)
+
+        self.assertEqual(num_api_calls_with_no_shotgun, num_api_calls_with_shotgun_1)
+
+    def test_shotgun_2_makes_more_calls_than_no_shotgun(self):
+        client = self.make_client()
+        self.call_submit(client)
+        num_api_calls_with_no_shotgun = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=2)
+        num_api_calls_with_shotgun_2 = len(client.responses.create_calls)
+
+        self.assertGreater(num_api_calls_with_shotgun_2, num_api_calls_with_no_shotgun)
+
+    def test_shotgun_overhead_not_invoked_when_no_shotgun(self):
+        # For shotgun >= 2, the call count is f(x) = x + c, where c is the fixed
+        # overhead of the ponder and final reconciliation calls. f(0) = 1 (no overhead).
+        # This means the jump from f(0) to f(3) is larger than the jump from f(3) to
+        # f(6), because f(0) is missing the overhead constant c that all shotgun
+        # invocations include.
+        client = self.make_client()
+        self.call_submit(client)
+        num_api_calls_with_no_shotgun = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=3)
+        num_api_calls_with_shotgun_3 = len(client.responses.create_calls)
+
+        client = self.make_client()
+        self.call_submit(client, shotgun=6)
+        num_api_calls_with_shotgun_6 = len(client.responses.create_calls)
+
+        delta3_from_no_shotgun = (
+            num_api_calls_with_shotgun_3 - num_api_calls_with_no_shotgun
+        )
+        delta3_from_shotgun_3 = (
+            num_api_calls_with_shotgun_6 - num_api_calls_with_shotgun_3
+        )
+
+        # f(3) - f(0) > f(6) - f(3), because f(0) lacks the overhead constant c.
+        self.assertGreater(delta3_from_no_shotgun, delta3_from_shotgun_3)
 
 
 if __name__ == "__main__":
