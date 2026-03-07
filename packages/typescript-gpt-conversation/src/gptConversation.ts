@@ -209,6 +209,7 @@ export class GptConversation extends Array<ConversationMessage> {
     const llmReply = await gptSubmit(this.toDictList(), this.openaiClient, {
       jsonResponse,
       model,
+      shotgun: options.shotgun,
     });
 
     this.addAssistantMessage(llmReply);

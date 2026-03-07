@@ -305,7 +305,9 @@ Nested dict (1 item long):
 
   it('should use shotgun to get a reliable answer on an unreliable question', async () => {
     // Adjust this number as needed to achieve a reliable pass rate.
-    const NUM_SHOTGUN_BARRELS = 6;
+    // Huge number of shotguns barrels is needed to get a consistent pass on this test,
+    // because the question is so unreliable.
+    const NUM_SHOTGUN_BARRELS = 10;
 
     const openaiClient = createClient();
     const convo = new GptConversation([], { openaiClient });
@@ -370,11 +372,7 @@ even if the count for some letters is zero.
     // is astronomically more likely to get a perfect answer than
     // any single attempt is on its own.
     // It's a lot of barrels, but we can't let this test be flaky.
-    const jsonSchema = JSONSchemaFormat(
-      formatparam,
-      'LetterCount',
-      'Letter count schema'
-    );
+    const jsonSchema = JSONSchemaFormat(formatparam);
     await convo.submit(undefined, undefined, {
       shotgun: NUM_SHOTGUN_BARRELS,
       jsonResponse: jsonSchema,

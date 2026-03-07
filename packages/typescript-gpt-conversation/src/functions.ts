@@ -192,14 +192,17 @@ const gptSubmitShotgun = async (
     const convoBarrel = JSON.parse(JSON.stringify(messages));
     convoShotgun.push(convoBarrel);
   }
-  let resultsRaw: unknown[] = await Promise.all(
+  const resultsRaw: unknown[] = await Promise.all(
     convoShotgun.map((convoBarrel) =>
       gptSubmit(convoBarrel, openaiClient, options)
     )
   );
-  let resultStrings = resultsRaw.map((result) => JSON.stringify(result));
+  const resultStrings = resultsRaw.map((result) => JSON.stringify(result));
 
-  messages.push({
+  // Build the reconciliation conversation on top of a fresh copy of the original messages.
+  const reconcileMessages: unknown[] = JSON.parse(JSON.stringify(messages));
+
+  reconcileMessages.push({
     role: 'system',
     content: `
 SYSTEM MESSAGE:
@@ -211,26 +214,41 @@ to examine and reconcile. Think of them as brainstorming or scratchpads.
 `,
   });
   resultStrings.forEach((resultString, index) => {
-    messages.push({
+    reconcileMessages.push({
       role: 'system',
       content: `WORKER ${index + 1} RESPONSE:\n\n\n${resultString}`,
     });
   });
 
-  messages.push({
+  reconcileMessages.push({
     role: 'system',
     content: `
 Focus on the differences and discrepancies between the workers' responses. Where do they agree?
 Where do they disagree? In the areas where they disagree, which worker's argument is most
-consistent with the data you've been shown? Remember, this is an adjudication, not a democracy --
-you should carefully examine the data presented in the conversation and use your best judgment
-to determine which worker is most likely to be correct.
+consistent with the data you've been shown?
+
+Remember, this is an adjudication, not a democracy -- you should carefully examine the data
+presented in the conversation and use your best judgment to determine which worker is most
+likely to be correct, even if they're in the minority. Evaluate their answers carefully against
+the source data. If multiple workers produced different answers, then clearly there is something
+subtle, deceptive, or misleading about the question or the data, and you should be especially
+careful to scrutinize the workers' reasoning and the evidence they present for their answers.
+At least one of them must be wrong; don't fall into the same trap he did.
 `,
   });
-  const sPonderReply = await gptSubmit(messages, openaiClient, options);
-  messages.push({ role: 'assistant', content: sPonderReply });
 
-  messages.push({
+  // This is a chain-of-thought ponderance. We specifically do not want a JSON
+  // response here, because we want the model to be able to freely reason and
+  // draw conclusions without being constrained by JSON syntax. The final answer
+  // will be produced in the next step, where we will ask the model to produce
+  // the same format as it was originally given (text or JSON).
+  const sPonderReply = await gptSubmit(reconcileMessages, openaiClient, {
+    ...options,
+    jsonResponse: undefined,
+  });
+  reconcileMessages.push({ role: 'assistant', content: sPonderReply });
+
+  reconcileMessages.push({
     role: 'system',
     content: `
 Having seen and reconciled the workers' responses, you are now ready to craft a proper reply to
@@ -241,8 +259,7 @@ you've gained from examining the workers' responses.
 `,
   });
 
-  const retval = await gptSubmit(messages, openaiClient, options);
-  return retval;
+  return gptSubmit(reconcileMessages, openaiClient, options);
 };
 
 /**

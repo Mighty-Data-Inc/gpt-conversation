@@ -2,6 +2,13 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.4.0 - 2026-03-07
+
+- Rewrote `gptSubmitShotgun` to build the reconciliation conversation on a separate deep copy of the original messages rather than mutating the input array.
+- Strengthened the adjudication prompt: instructs the model to evaluate minority opinions carefully and avoid repeating the same reasoning errors as incorrect workers.
+- The chain-of-thought ponder call now explicitly uses plain-text mode (`jsonResponse: undefined`), freeing the model to reason without schema restrictions before producing the final structured answer.
+- Added shotgun integration test: verifies the shotgun strategy produces the correct letter-count answer for "strawberry milkshake", and validates the baseline failure rate by running un-shotgunned parallel attempts and asserting that at least one fails.
+
 ## 1.3.3 - 2026-03-04
 
 - Version bump to trigger CI/CD and resolve npm trusted publishing (OIDC) issue for scoped packages. Fixed by upgrading to Node 24 and removing `registry-url` from the workflow, which was injecting a conflicting auth token.
@@ -22,7 +29,6 @@ All notable changes to this package will be documented in this file.
 
 - Initial release as a standalone package, split out from the mdi-llmkit monorepo.
 - Includes `gptSubmit`, `GptConversation`, and `JSONSchemaFormat`.
-
 
 ## 1.0.6 - 2026-02-27
 

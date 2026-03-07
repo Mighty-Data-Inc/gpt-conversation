@@ -2,6 +2,13 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.4.0 - 2026-03-07
+
+- Rewrote `_gpt_submit_shotgun` to build the reconciliation conversation on a separate deep copy of the original messages rather than mutating the input list.
+- Strengthened the adjudication prompt: instructs the model to evaluate minority opinions carefully and avoid repeating the same reasoning errors as incorrect workers.
+- The chain-of-thought ponder call now explicitly uses plain-text mode (no JSON constraint), freeing the model to reason without schema restrictions before producing the final structured answer.
+- Added `test_shotgun_to_get_reliable_answer_on_unreliable_prompt`: an integration test that (a) verifies the shotgun strategy produces the correct letter-count answer, and (b) validates the baseline failure rate by running un-shotgunned parallel attempts and asserting that at least one fails.
+
 ## 1.3.2 - 2026-03-04
 
 - Fixed remaining `patch()` target strings in `test_gpt_submit.py` that still referenced the old `gpt_conversation` module name.
@@ -22,7 +29,6 @@ All notable changes to this package will be documented in this file.
 
 - Initial release as a standalone package, split out from the mdi-llmkit monorepo.
 - Includes `gpt_submit`, `GptConversation`, and `json_schema_format`.
-
 
 ## 1.1.0 - 2026-02-28
 
