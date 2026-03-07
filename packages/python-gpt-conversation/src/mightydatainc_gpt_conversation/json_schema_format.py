@@ -103,8 +103,10 @@ def JSONSchemaFormat(
             "strict": True,
         },
     }
-    if name:
-        retval["format"]["name"] = name
+
+    name = name or "json_schema_for_structured_response"
+    retval["format"]["name"] = name
+
     if description:
         retval["format"]["description"] = description
 

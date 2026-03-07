@@ -63,9 +63,12 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports enum shorthand from string list', () => {
-    const result = JSONSchemaFormat({
-      mode: ['fast', 'safe', 'balanced'],
-    }, 'answer_enum');
+    const result = JSONSchemaFormat(
+      {
+        mode: ['fast', 'safe', 'balanced'],
+      },
+      'answer_enum'
+    );
 
     expect(result).toEqual({
       format: {
@@ -88,9 +91,12 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports metadata tuple style for array bounds and item description', () => {
-    const result = JSONSchemaFormat({
-      tags: ['Tag collection', [1, 5], ['Single tag']],
-    }, 'test_schema');
+    const result = JSONSchemaFormat(
+      {
+        tags: ['Tag collection', [1, 5], ['Single tag']],
+      },
+      'test_schema'
+    );
 
     expect(result).toEqual({
       format: {
@@ -116,10 +122,13 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('infers integer and enum via tuple metadata', () => {
-    const result = JSONSchemaFormat({
-      age: ['Age in years', [0, 120], []],
-      color: ['Preferred color', ['red', 'green', 'blue'], []],
-    }, 'test_schema');
+    const result = JSONSchemaFormat(
+      {
+        age: ['Age in years', [0, 120], []],
+        color: ['Preferred color', ['red', 'green', 'blue'], []],
+      },
+      'test_schema'
+    );
 
     expect(result).toEqual({
       format: {
@@ -149,9 +158,12 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports number type with range metadata when explicitly marked', () => {
-    const result = JSONSchemaFormat({
-      confidence: ['Confidence score', [0.0, 1.0], JSON_NUMBER],
-    }, 'test_schema');
+    const result = JSONSchemaFormat(
+      {
+        confidence: ['Confidence score', [0.0, 1.0], JSON_NUMBER],
+      },
+      'test_schema'
+    );
 
     expect(result).toEqual({
       format: {
@@ -176,10 +188,13 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports one-sided numeric bounds', () => {
-    const result = JSONSchemaFormat({
-      min_only: ['Minimum only', [0, null], []],
-      max_only: ['Maximum only', [null, 10], []],
-    }, 'test_schema');
+    const result = JSONSchemaFormat(
+      {
+        min_only: ['Minimum only', [0, null], []],
+        max_only: ['Maximum only', [null, 10], []],
+      },
+      'test_schema'
+    );
 
     expect(result).toEqual({
       format: {
@@ -208,24 +223,27 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports nested recursive schemas', () => {
-    const result = JSONSchemaFormat({
-      groups: [
-        {
-          name: 'Group name',
-          members: [
-            {
-              id: JSON_INTEGER,
-              roles: ['admin', 'viewer'],
-              tags: ['Tag label'],
-              profile: {
-                active: JSON_BOOLEAN,
-                scores: [JSON_NUMBER],
+    const result = JSONSchemaFormat(
+      {
+        groups: [
+          {
+            name: 'Group name',
+            members: [
+              {
+                id: JSON_INTEGER,
+                roles: ['admin', 'viewer'],
+                tags: ['Tag label'],
+                profile: {
+                  active: JSON_BOOLEAN,
+                  scores: [JSON_NUMBER],
+                },
               },
-            },
-          ],
-        },
-      ],
-    }, 'nested_schema');
+            ],
+          },
+        ],
+      },
+      'nested_schema'
+    );
 
     expect(result).toEqual({
       format: {
@@ -286,30 +304,33 @@ describe('JSONSchemaFormat', () => {
   });
 
   it('supports nested recursive schemas with inner tuple metadata', () => {
-    const result = JSONSchemaFormat({
-      groups: [
-        {
-          name: 'Group name',
-          members: [
-            'Members list',
-            [1, null],
-            [
-              {
-                id: JSON_INTEGER,
-                score: ['Member score', [0.0, 1.0], JSON_NUMBER],
-                aliases: ['Alias list', [0, 3], ['Alias text']],
-                history: [
-                  {
-                    year: ['Year', [1900, 2100], JSON_INTEGER],
-                    tags: ['History tags', [0, 5], ['Tag text']],
-                  },
-                ],
-              },
+    const result = JSONSchemaFormat(
+      {
+        groups: [
+          {
+            name: 'Group name',
+            members: [
+              'Members list',
+              [1, null],
+              [
+                {
+                  id: JSON_INTEGER,
+                  score: ['Member score', [0.0, 1.0], JSON_NUMBER],
+                  aliases: ['Alias list', [0, 3], ['Alias text']],
+                  history: [
+                    {
+                      year: ['Year', [1900, 2100], JSON_INTEGER],
+                      tags: ['History tags', [0, 5], ['Tag text']],
+                    },
+                  ],
+                },
+              ],
             ],
-          ],
-        },
-      ],
-    }, 'nested_schema_with_metadata');
+          },
+        ],
+      },
+      'nested_schema_with_metadata'
+    );
 
     expect(result).toEqual({
       format: {
@@ -390,6 +411,34 @@ describe('JSONSchemaFormat', () => {
                 },
               },
             },
+          },
+        },
+      },
+    });
+  });
+
+  it('uses default name when name is not provided for object schema', () => {
+    const result = JSONSchemaFormat({ value: JSON_STRING });
+
+    expect(result.format.name).toBe('json_schema_for_structured_response');
+    expect(result.format.type).toBe('json_schema');
+    expect(result.format.strict).toBe(true);
+  });
+
+  it('uses default name as wrapper key when name is not provided for non-object schema', () => {
+    const result = JSONSchemaFormat(JSON_INTEGER);
+
+    expect(result).toEqual({
+      format: {
+        type: 'json_schema',
+        strict: true,
+        name: 'json_schema_for_structured_response',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['json_schema_for_structured_response'],
+          properties: {
+            json_schema_for_structured_response: { type: 'integer' },
           },
         },
       },

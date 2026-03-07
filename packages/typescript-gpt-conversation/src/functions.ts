@@ -1,34 +1,75 @@
-export const GPT_MODEL_CHEAP = "gpt-4.1-nano";
-export const GPT_MODEL_SMART = "gpt-4.1";
-export const GPT_MODEL_VISION = "gpt-4.1";
+export const GPT_MODEL_CHEAP = 'gpt-4.1-nano';
+export const GPT_MODEL_SMART = 'gpt-4.1';
+export const GPT_MODEL_VISION = 'gpt-4.1';
 
 const GPT_RETRY_LIMIT_DEFAULT = 5;
 const GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT = 30;
 
+/**
+ * Minimal interface describing an OpenAI client that can submit requests via
+ * `responses.create`. Accepting this interface instead of the concrete SDK
+ * class keeps callers decoupled from the SDK version and makes testing easier.
+ */
 export interface OpenAIClientLike {
   responses: {
     create: (args: any, options?: any) => Promise<any> | any;
   };
 }
 
+/**
+ * A chat message with the `system` role, used to inject instructions or
+ * context into a conversation before it is submitted to the model.
+ */
 export interface SystemMessage {
-  role: "system";
+  role: 'system';
   content: string;
 }
 
+/**
+ * Options controlling the behaviour of {@link gptSubmit}.
+ *
+ * @property model - The OpenAI model ID to use. Defaults to {@link GPT_MODEL_SMART}.
+ * @property jsonResponse - When `true`, requests a plain JSON object response.
+ *   When a `Record` or JSON string, that value is forwarded as the `text` format
+ *   parameter (i.e. a JSON schema). Defaults to `undefined` (plain text).
+ * @property systemAnnouncementMessage - An optional system message prepended to
+ *   every request, before all other messages.
+ * @property retryLimit - Maximum number of retry attempts on recoverable errors.
+ *   Defaults to {@link GPT_RETRY_LIMIT_DEFAULT}.
+ * @property retryBackoffTimeSeconds - Seconds to wait between retries for
+ *   OpenAI API errors. Defaults to {@link GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT}.
+ * @property shotgun - When greater than 1, the request is sent to this many
+ *   parallel worker calls and the results are reconciled by a final call.
+ * @property warningCallback - Optional callback invoked with a human-readable
+ *   warning string on recoverable errors and incomplete responses.
+ */
 export interface GptSubmitOptions {
   model?: string;
   jsonResponse?: boolean | Record<string, unknown> | string;
   systemAnnouncementMessage?: string;
   retryLimit?: number;
   retryBackoffTimeSeconds?: number;
+  shotgun?: number;
   warningCallback?: (message: string) => void;
 }
 
+/**
+ * Type guard that returns `true` when `value` is a plain, non-null, non-array
+ * object — i.e. a `Record<string, unknown>`.
+ *
+ * @param value - The value to test.
+ * @returns `true` if `value` is a plain object record.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Returns a promise that resolves after the given number of milliseconds.
+ * Used to introduce a delay between retry attempts.
+ *
+ * @param ms - Duration to sleep, in milliseconds.
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -53,7 +94,7 @@ function sleep(ms: number): Promise<void> {
 function parseFirstJsonValue(input: string): any {
   const text = input.trimStart();
   if (!text) {
-    throw new SyntaxError("Unexpected end of JSON input");
+    throw new SyntaxError('Unexpected end of JSON input');
   }
 
   try {
@@ -68,36 +109,182 @@ function parseFirstJsonValue(input: string): any {
     }
   }
 
-  throw new SyntaxError("Unexpected token in JSON input");
+  throw new SyntaxError('Unexpected token in JSON input');
 }
 
+/**
+ * Returns `true` when `error` is an OpenAI SDK error that is worth retrying
+ * (e.g. rate-limit or transient server errors). Detection is based on the
+ * error's `name` property containing `"OpenAI"` or `"APIError"`.
+ *
+ * @param error - The caught value to inspect.
+ * @returns `true` if the error is a retryable OpenAI API error.
+ */
 function isRetryableOpenAIError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
 
-  const name = error.name || "";
-  return name.includes("OpenAI") || name.includes("APIError");
+  const name = error.name || '';
+  return name.includes('OpenAI') || name.includes('APIError');
 }
 
+/**
+ * Builds a {@link SystemMessage} containing the current local date and time
+ * formatted as `YYYY-MM-DD HH:MM:SS`. This message is automatically prepended
+ * to every request so the model is aware of the current datetime.
+ *
+ * @returns A system message with the current timestamp.
+ */
 export function currentDatetimeSystemMessage(): SystemMessage {
   const now = new Date();
-  const pad = (value: number): string => value.toString().padStart(2, "0");
+  const pad = (value: number): string => value.toString().padStart(2, '0');
   const timestamp =
     `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
   return {
-    role: "system",
+    role: 'system',
     content: `!DATETIME: The current date and time is ${timestamp}`,
   };
 }
 
-export async function gptSubmit(
+/**
+ * Implements the "shotgun" strategy for {@link gptSubmit}: sends `numBarrels`
+ * parallel requests with identical inputs, then asks the model to examine all
+ * responses and reconcile them into a single authoritative answer.
+ *
+ * This improves output quality for tasks where the model benefits from
+ * exploring multiple reasoning paths simultaneously.
+ *
+ * @param messages - The conversation history to send to each worker.
+ * @param openaiClient - The OpenAI client instance.
+ * @param options - Submit options (the `shotgun` field is stripped before
+ *   forwarding to avoid infinite recursion).
+ * @param numBarrels - Number of parallel worker requests to fire.
+ * @returns The reconciled response from the model.
+ */
+const gptSubmitShotgun = async (
   messages: unknown[],
   openaiClient: OpenAIClientLike,
   options: GptSubmitOptions = {},
-): Promise<string | Record<string, unknown> | unknown[] | number | boolean | null> {
+  numBarrels: number
+): Promise<
+  string | Record<string, unknown> | unknown[] | number | boolean | null
+> => {
+  messages = JSON.parse(JSON.stringify(messages));
+  options = JSON.parse(JSON.stringify(options));
+
+  // Delete the shotgun option from the options passed to gptSubmitShotgun to avoid infinite recursion.
+  delete options.shotgun;
+
+  if (numBarrels <= 1) {
+    // No need for shotgun logic if only 1 barrel requested.
+    return gptSubmit(messages, openaiClient, options);
+  }
+
+  // Remove the shotgun option before passing to gptSubmit to avoid
+  // infinite recursion!
+  delete options.shotgun;
+
+  const convoShotgun: unknown[][] = [];
+  for (let i = 0; i < numBarrels; i += 1) {
+    const convoBarrel = JSON.parse(JSON.stringify(messages));
+    convoShotgun.push(convoBarrel);
+  }
+  let resultsRaw: unknown[] = await Promise.all(
+    convoShotgun.map((convoBarrel) =>
+      gptSubmit(convoBarrel, openaiClient, options)
+    )
+  );
+  let resultStrings = resultsRaw.map((result) => JSON.stringify(result));
+
+  messages.push({
+    role: 'system',
+    content: `
+SYSTEM MESSAGE:
+In order to produce better results, we submitted this request/question/command/etc.
+to ${numBarrels} worker threads in parallel.
+The system will now present each of their responses, wrapped in JSON.
+The user or developer will not see these responses -- they are only for you, the assistant, 
+to examine and reconcile. Think of them as brainstorming or scratchpads.
+`,
+  });
+  resultStrings.forEach((resultString, index) => {
+    messages.push({
+      role: 'system',
+      content: `WORKER ${index + 1} RESPONSE:\n\n\n${resultString}`,
+    });
+  });
+
+  messages.push({
+    role: 'system',
+    content: `
+Focus on the differences and discrepancies between the workers' responses. Where do they agree?
+Where do they disagree? In the areas where they disagree, which worker's argument is most
+consistent with the data you've been shown? Remember, this is an adjudication, not a democracy --
+you should carefully examine the data presented in the conversation and use your best judgment
+to determine which worker is most likely to be correct.
+`,
+  });
+  const sPonderReply = await gptSubmit(messages, openaiClient, options);
+  messages.push({ role: 'assistant', content: sPonderReply });
+
+  messages.push({
+    role: 'system',
+    content: `
+Having seen and reconciled the workers' responses, you are now ready to craft a proper reply to
+the question/request/command/etc. This response that you craft now is the one that will be
+presented to the user or developer -- it should not directly reference the workers' responses,
+but should instead be a fully self-contained and complete answer that draws on the insights
+you've gained from examining the workers' responses.
+`,
+  });
+
+  const retval = await gptSubmit(messages, openaiClient, options);
+  return retval;
+};
+
+/**
+ * Submits a conversation to the OpenAI Responses API and returns the model's
+ * reply.
+ *
+ * - Prepends a current-datetime system message to every request.
+ * - Optionally enforces a JSON response format (plain JSON or a full JSON
+ *   schema via `options.jsonResponse`).
+ * - Automatically retries on JSON parse errors and retryable OpenAI API errors
+ *   up to `options.retryLimit` times.
+ * - Delegates to {@link gptSubmitShotgun} when `options.shotgun > 1`.
+ *
+ * @param messages - The conversation history, including any prior assistant
+ *   turns. Each element should be a message object with at minimum `role` and
+ *   `content` fields.
+ * @param openaiClient - An {@link OpenAIClientLike} instance used to call the
+ *   API.
+ * @param options - Optional settings controlling model, JSON mode, retries,
+ *   and shotgun parallelism.
+ * @returns The model's response. A plain `string` when `jsonResponse` is
+ *   falsy; otherwise a parsed JSON value (`Record`, `unknown[]`, `number`,
+ *   `boolean`, or `null`).
+ * @throws The last encountered error after all retry attempts are exhausted,
+ *   or immediately for non-retryable errors.
+ */
+export async function gptSubmit(
+  messages: unknown[],
+  openaiClient: OpenAIClientLike,
+  options: GptSubmitOptions = {}
+): Promise<
+  string | Record<string, unknown> | unknown[] | number | boolean | null
+> {
+  if (options.shotgun && options.shotgun > 1) {
+    return await gptSubmitShotgun(
+      messages,
+      openaiClient,
+      options,
+      options.shotgun
+    );
+  }
+
   const model = options.model || GPT_MODEL_SMART;
   const retryLimit = options.retryLimit ?? GPT_RETRY_LIMIT_DEFAULT;
   const retryBackoffTimeSeconds =
@@ -107,19 +294,21 @@ export async function gptSubmit(
 
   let openaiTextParam: Record<string, unknown> | undefined;
   if (options.jsonResponse) {
-    if (typeof options.jsonResponse === "boolean") {
-      openaiTextParam = { format: { type: "json_object" } };
-    } else if (typeof options.jsonResponse === "string") {
-      openaiTextParam = JSON.parse(options.jsonResponse) as Record<string, unknown>;
-    } else if (isRecord(options.jsonResponse)) {
-      openaiTextParam = JSON.parse(JSON.stringify(options.jsonResponse)) as Record<
+    if (typeof options.jsonResponse === 'boolean') {
+      openaiTextParam = { format: { type: 'json_object' } };
+    } else if (typeof options.jsonResponse === 'string') {
+      openaiTextParam = JSON.parse(options.jsonResponse) as Record<
         string,
         unknown
       >;
+    } else if (isRecord(options.jsonResponse)) {
+      openaiTextParam = JSON.parse(
+        JSON.stringify(options.jsonResponse)
+      ) as Record<string, unknown>;
 
       const format = openaiTextParam.format;
-      if (isRecord(format) && typeof format.description === "string") {
-        format.description = 
+      if (isRecord(format) && typeof format.description === 'string') {
+        format.description =
           `${format.description}\n\nABSOLUTELY NO UNICODE ALLOWED. ` +
           `Only use typeable keyboard characters. Do not try to circumvent this rule ` +
           `with escape sequences, backslashes, or other tricks. Use double dashes (--), ` +
@@ -136,23 +325,29 @@ export async function gptSubmit(
     const role = message.role;
     const content = message.content;
     return !(
-      role === "system" &&
-      typeof content === "string" &&
-      content.startsWith("!DATETIME:")
+      role === 'system' &&
+      typeof content === 'string' &&
+      content.startsWith('!DATETIME:')
     );
   });
 
-  let preparedMessages: unknown[] = [currentDatetimeSystemMessage(), ...filteredMessages];
+  let preparedMessages: unknown[] = [
+    currentDatetimeSystemMessage(),
+    ...filteredMessages,
+  ];
 
-  if (options.systemAnnouncementMessage && options.systemAnnouncementMessage.trim()) {
+  if (
+    options.systemAnnouncementMessage &&
+    options.systemAnnouncementMessage.trim()
+  ) {
     preparedMessages = [
-      { role: "system", content: options.systemAnnouncementMessage.trim() },
+      { role: 'system', content: options.systemAnnouncementMessage.trim() },
       ...preparedMessages,
     ];
   }
 
   for (let index = 0; index < retryLimit; index += 1) {
-    let llmReply = "";
+    let llmReply = '';
 
     try {
       const payload: {
@@ -170,11 +365,13 @@ export async function gptSubmit(
       const llmResponse = await openaiClient.responses.create(payload);
 
       if (llmResponse.error && options.warningCallback) {
-        options.warningCallback(`ERROR: OpenAI API returned an error: ${llmResponse.error}`);
+        options.warningCallback(
+          `ERROR: OpenAI API returned an error: ${llmResponse.error}`
+        );
       }
       if (llmResponse.incomplete_details && options.warningCallback) {
         options.warningCallback(
-          `ERROR: OpenAI API returned incomplete details: ${llmResponse.incomplete_details}`,
+          `ERROR: OpenAI API returned incomplete details: ${llmResponse.incomplete_details}`
         );
       }
 
@@ -190,7 +387,7 @@ export async function gptSubmit(
         failedError = error;
         if (options.warningCallback) {
           options.warningCallback(
-            `JSON decode error:\n\n${error}.\n\nRaw text of LLM Reply:\n${llmReply}\n\nRetrying (attempt ${index + 1} of ${retryLimit}) immediately...`,
+            `JSON decode error:\n\n${error}.\n\nRaw text of LLM Reply:\n${llmReply}\n\nRetrying (attempt ${index + 1} of ${retryLimit}) immediately...`
           );
         }
         continue;
@@ -200,7 +397,7 @@ export async function gptSubmit(
         failedError = error;
         if (options.warningCallback) {
           options.warningCallback(
-            `OpenAI API error:\n\n${error}.\n\nRetrying (attempt ${index + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`,
+            `OpenAI API error:\n\n${error}.\n\nRetrying (attempt ${index + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`
           );
         }
         await sleep(retryBackoffTimeSeconds * 1000);
@@ -215,5 +412,5 @@ export async function gptSubmit(
     throw failedError;
   }
 
-  throw new Error("Unknown error occurred in gptSubmit");
+  throw new Error('Unknown error occurred in gptSubmit');
 }
