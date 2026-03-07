@@ -110,6 +110,8 @@ def gpt_submit(
     Raises:
         openai.AuthenticationError: Immediately, without retrying, when the API
             key is missing or invalid.
+        openai.BadRequestError: Immediately, without retrying, when the request
+            is malformed (e.g. invalid message content type).
         openai.PermissionDeniedError: Immediately, without retrying, when the
             request is forbidden.
         openai.OpenAIError: When other API errors persist through all retries.
@@ -227,7 +229,12 @@ def gpt_submit(
             # Non-retryable errors should propagate immediately — retrying
             # with a backoff would only waste time and obscure the problem.
             if isinstance(
-                e, (openai.AuthenticationError, openai.PermissionDeniedError)
+                e,
+                (
+                    openai.AuthenticationError,
+                    openai.BadRequestError,
+                    openai.PermissionDeniedError,
+                ),
             ):
                 raise
             # A local protocol error (e.g. illegal header value caused by a

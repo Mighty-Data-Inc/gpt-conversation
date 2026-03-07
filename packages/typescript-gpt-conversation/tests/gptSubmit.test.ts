@@ -61,6 +61,13 @@ class OpenAIError extends Error {
   }
 }
 
+class BadRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BadRequestError';
+  }
+}
+
 describe('gptSubmit', () => {
   it('uses default model and omits text config when json mode is disabled', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('ok')]);
@@ -227,6 +234,22 @@ describe('gptSubmit', () => {
     expect(client.responses.createCalls).toHaveLength(2);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('JSON decode error');
+  });
+
+  it('throws BadRequestError immediately without retry', async () => {
+    const badRequestError = new BadRequestError(
+      "Invalid type for 'input[11].content': expected one of an array of objects or string, but got an object instead."
+    );
+    const client = new FakeOpenAIClient([badRequestError]);
+
+    await expect(
+      gptSubmit([{ role: 'user', content: 'hello' }], client, {
+        retryLimit: 5,
+        retryBackoffTimeSeconds: 30,
+      })
+    ).rejects.toBeInstanceOf(BadRequestError);
+
+    expect(client.responses.createCalls).toHaveLength(1);
   });
 
   it('throws for malformed response output_text without retry', async () => {

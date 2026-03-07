@@ -283,6 +283,23 @@ class TestRetryBehavior(GPTSubmitFrameworkBase):
         self.assertEqual(len(client.responses.create_calls), 1)
         mock_sleep.assert_not_called()
 
+    def test_bad_request_error_is_raised_immediately_without_retry(self):
+        mock_response = MagicMock()
+        mock_response.request = MagicMock()
+        bad_request_error = openai.BadRequestError(
+            "Invalid type for 'input[11].content': expected one of an array of objects or string, but got an object instead.",
+            response=mock_response,
+            body=None,
+        )
+        client = self.make_client(bad_request_error)
+
+        with patch("mightydatainc_gpt_conversation.functions.time.sleep") as mock_sleep:
+            with self.assertRaises(openai.BadRequestError):
+                self.call_submit(client, retry_limit=5, retry_backoff_time_seconds=30)
+
+        self.assertEqual(len(client.responses.create_calls), 1)
+        mock_sleep.assert_not_called()
+
     def test_local_protocol_error_connection_error_is_raised_immediately_without_retry(
         self,
     ):

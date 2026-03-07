@@ -319,7 +319,39 @@ even if the count for some letters is zero.
 """
         )
         convo.add_user_message("strawberry milkshake")
-        convo.submit(json_response=True, shotgun=6)
+        convo.submit(
+            shotgun=6,  # This is a known flaky prompt, so we use shotgun to increase reliability.
+            json_response=JSONSchemaFormat(
+                {
+                    "a": int,
+                    "b": int,
+                    "c": int,
+                    "d": int,
+                    "e": int,
+                    "f": int,
+                    "g": int,
+                    "h": int,
+                    "i": int,
+                    "j": int,
+                    "k": int,
+                    "l": int,
+                    "m": int,
+                    "n": int,
+                    "o": int,
+                    "p": int,
+                    "q": int,
+                    "r": int,
+                    "s": int,
+                    "t": int,
+                    "u": int,
+                    "v": int,
+                    "w": int,
+                    "x": int,
+                    "y": int,
+                    "z": int,
+                }
+            ),
+        )
 
         reply = convo.get_last_reply_dict()
         print(json.dumps(reply, indent=2))
