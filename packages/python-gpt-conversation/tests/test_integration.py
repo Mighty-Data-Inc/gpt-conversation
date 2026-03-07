@@ -5,6 +5,7 @@ They are intentionally slow and make real API calls.
 """
 
 import base64
+import concurrent.futures
 import json
 import os
 import sys
@@ -290,9 +291,11 @@ Nested dict (1 item long):
 
         self.assertEqual(convo.get_last_reply_dict_field("image_subject_enum"), "cat")
 
-    def test_shotgun_on_unreliable_answer(self):
-        """Intentionally flaky without shotgun: LLMs miscount repeated letters.
-        Run several times to confirm intermittent failures before enabling shotgun."""
+    def test_shotgun_to_get_reliable_answer_on_unreliable_prompt(self):
+        """Intentionally flaky without shotgun: LLMs miscount repeated letters.."""
+        # Adjust this number as needed to achieve a reliable pass rate.
+        NUM_SHOTGUN_BARRELS = 6
+
         convo = GptConversation([], openai_client=make_client())
 
         convo.add_developer_message(
@@ -351,13 +354,20 @@ even if the count for some letters is zero.
                 ),
             }
 
+        # Clone the convo to a "savepoint". This will allow us to validate its performance
+        # against different run modalities.
+        convo_before_submit = convo.clone()
+
         # Without shotgunning, this fails >90% of the time.
         # Notably, it fails a *different* way each time.
         # Because of this multivariate leverage, the shotgun approach
         # is astronomically more likely to get a perfect answer than
         # any single attempt is on its own.
         # It's a lot of barrels, but we can't let this test be flaky.
-        convo.submit(shotgun=6, json_response=JSONSchemaFormat(formatparam))
+        convo.submit(
+            shotgun=NUM_SHOTGUN_BARRELS,
+            json_response=JSONSchemaFormat(formatparam),
+        )
 
         reply = convo.get_last_reply_dict()
 
@@ -366,31 +376,66 @@ even if the count for some letters is zero.
 
         # strawberry milkshake
         # s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)
-        self.assertEqual(reply["a"]["count"], 2)
-        self.assertEqual(reply["b"]["count"], 1)
-        self.assertEqual(reply["c"]["count"], 0)
-        self.assertEqual(reply["d"]["count"], 0)
-        self.assertEqual(reply["e"]["count"], 2)
-        self.assertEqual(reply["f"]["count"], 0)
-        self.assertEqual(reply["g"]["count"], 0)
-        self.assertEqual(reply["h"]["count"], 1)
-        self.assertEqual(reply["i"]["count"], 1)
-        self.assertEqual(reply["k"]["count"], 2)
-        self.assertEqual(reply["l"]["count"], 1)
-        self.assertEqual(reply["m"]["count"], 1)
-        self.assertEqual(reply["n"]["count"], 0)
-        self.assertEqual(reply["o"]["count"], 0)
-        self.assertEqual(reply["p"]["count"], 0)
-        self.assertEqual(reply["q"]["count"], 0)
-        self.assertEqual(reply["r"]["count"], 3)
-        self.assertEqual(reply["s"]["count"], 2)
-        self.assertEqual(reply["t"]["count"], 1)
-        self.assertEqual(reply["u"]["count"], 0)
-        self.assertEqual(reply["v"]["count"], 0)
-        self.assertEqual(reply["w"]["count"], 1)
-        self.assertEqual(reply["x"]["count"], 0)
-        self.assertEqual(reply["y"]["count"], 1)
-        self.assertEqual(reply["z"]["count"], 0)
+        expected_counts = {
+            "a": 2,
+            "b": 1,
+            "c": 0,
+            "d": 0,
+            "e": 2,
+            "f": 0,
+            "g": 0,
+            "h": 1,
+            "i": 1,
+            "j": 0,
+            "k": 2,
+            "l": 1,
+            "m": 1,
+            "n": 0,
+            "o": 0,
+            "p": 0,
+            "q": 0,
+            "r": 3,
+            "s": 2,
+            "t": 1,
+            "u": 0,
+            "v": 0,
+            "w": 1,
+            "x": 0,
+            "y": 1,
+            "z": 0,
+        }
+        observed_counts = {
+            letter: reply[letter]["count"] for letter in expected_counts.keys()
+        }
+        self.assertEqual(observed_counts, expected_counts)
+
+        # We need to validate that it reliably fails without shotgunning to confirm that the shotgun
+        # approach is actually necessary to get a consistent pass on this test. If it passes 100%
+        # of the time without shotgunning, then this test isn't actually doing anything useful.
+        # Use concurrent futures to run NUM_SHOTGUN_BARRELS attempts in parallel, and assert that
+        # at least one of them fails.
+        convo = convo_before_submit.clone()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    convo.submit,
+                    json_response=JSONSchemaFormat(formatparam),
+                )
+                for _ in range(NUM_SHOTGUN_BARRELS)
+            ]
+            results = [
+                future.result() for future in concurrent.futures.as_completed(futures)
+            ]
+
+        does_each_result_equal_expected = []
+        for result in results:
+            observed_counts = {
+                letter: result[letter]["count"] for letter in expected_counts.keys()
+            }
+            does_each_result_equal_expected.append(observed_counts == expected_counts)
+
+        # Assert that at least one of the attempts failed to get the correct answer.
+        self.assertFalse(all(does_each_result_equal_expected))
 
 
 if __name__ == "__main__":

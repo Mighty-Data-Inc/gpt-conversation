@@ -304,6 +304,9 @@ Nested dict (1 item long):
   }, 180000);
 
   it('should use shotgun to get a reliable answer on an unreliable question', async () => {
+    // Adjust this number as needed to achieve a reliable pass rate.
+    const NUM_SHOTGUN_BARRELS = 6;
+
     const openaiClient = createClient();
     const convo = new GptConversation([], { openaiClient });
 
@@ -357,19 +360,24 @@ even if the count for some letters is zero.
       };
     }
 
+    // Clone the convo to a "savepoint". This will allow us to validate its performance
+    // against different run modalities.
+    const convoBeforeSubmit = convo.clone();
+
     // Without shotgunning, this fails >90% of the time.
     // Notably, it fails a *different* way each time.
     // Because of this multivariate leverage, the shotgun approach
     // is astronomically more likely to get a perfect answer than
     // any single attempt is on its own.
     // It's a lot of barrels, but we can't let this test be flaky.
+    const jsonSchema = JSONSchemaFormat(
+      formatparam,
+      'LetterCount',
+      'Letter count schema'
+    );
     await convo.submit(undefined, undefined, {
-      shotgun: 6,
-      jsonResponse: JSONSchemaFormat(
-        formatparam,
-        'LetterCount',
-        'Letter count schema'
-      ),
+      shotgun: NUM_SHOTGUN_BARRELS,
+      jsonResponse: jsonSchema,
     });
 
     const reply = convo.getLastReplyDict() as Record<
@@ -382,30 +390,60 @@ even if the count for some letters is zero.
 
     // strawberry milkshake
     // s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)
-    expect(reply['a'].count).toBe(2);
-    expect(reply['b'].count).toBe(1);
-    expect(reply['c'].count).toBe(0);
-    expect(reply['d'].count).toBe(0);
-    expect(reply['e'].count).toBe(2);
-    expect(reply['f'].count).toBe(0);
-    expect(reply['g'].count).toBe(0);
-    expect(reply['h'].count).toBe(1);
-    expect(reply['i'].count).toBe(1);
-    expect(reply['k'].count).toBe(2);
-    expect(reply['l'].count).toBe(1);
-    expect(reply['m'].count).toBe(1);
-    expect(reply['n'].count).toBe(0);
-    expect(reply['o'].count).toBe(0);
-    expect(reply['p'].count).toBe(0);
-    expect(reply['q'].count).toBe(0);
-    expect(reply['r'].count).toBe(3);
-    expect(reply['s'].count).toBe(2);
-    expect(reply['t'].count).toBe(1);
-    expect(reply['u'].count).toBe(0);
-    expect(reply['v'].count).toBe(0);
-    expect(reply['w'].count).toBe(1);
-    expect(reply['x'].count).toBe(0);
-    expect(reply['y'].count).toBe(1);
-    expect(reply['z'].count).toBe(0);
+    const expectedCounts: Record<string, number> = {
+      a: 2,
+      b: 1,
+      c: 0,
+      d: 0,
+      e: 2,
+      f: 0,
+      g: 0,
+      h: 1,
+      i: 1,
+      j: 0,
+      k: 2,
+      l: 1,
+      m: 1,
+      n: 0,
+      o: 0,
+      p: 0,
+      q: 0,
+      r: 3,
+      s: 2,
+      t: 1,
+      u: 0,
+      v: 0,
+      w: 1,
+      x: 0,
+      y: 1,
+      z: 0,
+    };
+    const observedCounts = Object.fromEntries(
+      Object.keys(expectedCounts).map((letter) => [letter, reply[letter].count])
+    );
+    expect(observedCounts).toEqual(expectedCounts);
+
+    // We need to validate that it reliably fails without shotgunning to confirm that the shotgun
+    // approach is actually necessary to get a consistent pass on this test. If it passes 100%
+    // of the time without shotgunning, then this test isn't actually doing anything useful.
+    // Run NUM_SHOTGUN_BARRELS attempts in parallel (no shotgun) and assert that at least one fails.
+    const results = await Promise.all(
+      Array.from({ length: NUM_SHOTGUN_BARRELS }, () =>
+        convoBeforeSubmit
+          .clone()
+          .submit(undefined, undefined, { jsonResponse: jsonSchema })
+      )
+    );
+
+    const doesEachResultEqualExpected = results.map((result) => {
+      const r = result as Record<string, Record<string, number>>;
+      const observed = Object.fromEntries(
+        Object.keys(expectedCounts).map((letter) => [letter, r[letter].count])
+      );
+      return JSON.stringify(observed) === JSON.stringify(expectedCounts);
+    });
+
+    // Assert that at least one of the attempts failed to get the correct answer.
+    expect(doesEachResultEqualExpected.every(Boolean)).toBe(false);
   }, 360000);
 });
