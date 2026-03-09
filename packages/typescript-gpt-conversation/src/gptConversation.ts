@@ -168,7 +168,7 @@ export class GptConversation extends Array<ConversationMessage> {
    *   a plain string, a content record, or omitted to submit the existing
    *   history as-is.
    * @param role - The role to use when appending `message`. Defaults to
-   *   `"user"`. Pass `null` to infer the role from a record's `role` field.
+   *   `"user"`, or the role specified in the message record if available.
    * @param options - Per-call overrides for model, JSON response format, and
    *   shotgun parallelism.
    * @returns The assistant's reply — a `string` for plain-text responses or a
@@ -177,9 +177,16 @@ export class GptConversation extends Array<ConversationMessage> {
    */
   async submit(
     message?: string | Record<string, unknown>,
-    role: string | null = 'user',
+    role?: string,
     options: SubmitOptions = {}
   ): Promise<unknown> {
+    if (!role) {
+      role = 'user';
+      if (isRecord(message) && typeof message.role === 'string') {
+        role = message.role;
+      }
+    }
+
     if (!this.openaiClient) {
       throw new Error(
         'OpenAI client is not set. Please provide an OpenAI client.'
