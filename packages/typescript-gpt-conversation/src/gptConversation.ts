@@ -24,7 +24,6 @@ export interface ConversationMessage {
  *   to {@link GPT_MODEL_SMART} when not set.
  */
 export interface GptConversationOptions {
-  openaiClient?: OpenAIClientLike;
   model?: string;
 }
 
@@ -112,12 +111,13 @@ export class GptConversation extends Array<ConversationMessage> {
    * @param options - Optional client and model defaults.
    */
   constructor(
-    messages: ConversationMessage[] = [],
-    options: GptConversationOptions = {}
+    openaiClient?: OpenAIClientLike,
+    messages?: ConversationMessage[],
+    options?: GptConversationOptions
   ) {
-    super(...messages);
-    this.#openaiClient = options.openaiClient;
-    this.#model = options.model;
+    super(...(messages || []));
+    this.#openaiClient = openaiClient;
+    this.#model = options?.model;
   }
 
   /**
@@ -145,10 +145,23 @@ export class GptConversation extends Array<ConversationMessage> {
    *   configuration.
    */
   clone(): GptConversation {
-    return new GptConversation(JSON.parse(JSON.stringify([...this])), {
-      openaiClient: this.openaiClient,
-      model: this.model,
-    });
+    const retval = new GptConversation();
+    retval.openaiClient = this.openaiClient;
+    retval.model = this.model;
+
+    if (
+      this.lastReply === undefined ||
+      this.lastReply === null ||
+      typeof this.lastReply === 'string'
+    ) {
+      retval.lastReply = this.lastReply;
+    } else {
+      // For objects and arrays, perform a deep copy to avoid shared references.
+      retval.lastReply = JSON.parse(JSON.stringify(this.lastReply));
+    }
+
+    retval.assignMessages(this.toDictList());
+    return retval;
   }
 
   /**
@@ -213,7 +226,6 @@ export class GptConversation extends Array<ConversationMessage> {
     });
 
     this.addAssistantMessage(llmReply);
-    this.lastReply = llmReply;
     return llmReply;
   }
 
@@ -255,11 +267,13 @@ export class GptConversation extends Array<ConversationMessage> {
 
   /**
    * Appends an `"assistant"` message to the conversation history.
+   * Updates `lastReply` to the new content.
    *
    * @param content - The message content.
    * @returns `this`, for chaining.
    */
   addAssistantMessage(content: unknown): this {
+    this.lastReply = content;
     return this.addMessage('assistant', content);
   }
 
@@ -444,11 +458,11 @@ export class GptConversation extends Array<ConversationMessage> {
   }
 
   /**
-   * Returns a shallow copy of the conversation history as a plain array of
+   * Returns a deep copy of the conversation history as a plain array of
    * {@link ConversationMessage} objects, suitable for serialisation or passing
    * to {@link gptSubmit} directly.
    */
   toDictList(): ConversationMessage[] {
-    return [...this];
+    return JSON.parse(JSON.stringify([...this]));
   }
 }

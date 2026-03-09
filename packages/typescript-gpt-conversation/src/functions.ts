@@ -167,7 +167,7 @@ export function currentDatetimeSystemMessage(): SystemMessage {
 const gptSubmitShotgun = async (
   messages: unknown[],
   openaiClient: OpenAIClientLike,
-  options: GptSubmitOptions = {},
+  options: GptSubmitOptions,
   numBarrels: number
 ): Promise<
   string | Record<string, unknown> | unknown[] | number | boolean | null

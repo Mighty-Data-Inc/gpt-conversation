@@ -50,7 +50,7 @@ const IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
 describe('integration tests (live API)', () => {
   it('should repeat Hello World', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], { openaiClient });
+    const convo = new GptConversation(openaiClient);
 
     convo.addUserMessage(`
 This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.
@@ -66,7 +66,7 @@ marks. Emit only the words "Hello World", capitalized as shown.
 
   it('should invoke an LLM with some nominal intelligence', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], { openaiClient });
+    const convo = new GptConversation(openaiClient);
 
     // We'll use this opportunity to test the submitUserMessage convenience method.
     await convo.submitUserMessage(`
@@ -85,7 +85,7 @@ please -- first letter capitalized, all other letters lower-case.
 
   it('should reply with a general-form JSON object', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], { openaiClient });
+    const convo = new GptConversation(openaiClient);
 
     convo.addUserMessage(`
 This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.
@@ -124,7 +124,7 @@ Please reply with the following JSON object, exactly as shown:
 
   it('should reply with structured JSON using JSON schema spec', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], { openaiClient });
+    const convo = new GptConversation(openaiClient);
 
     const schema = {
       format: {
@@ -191,7 +191,7 @@ Nested dict (1 item long):
 
   it('should reply with structured JSON using JSON formatter shorthand', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], { openaiClient });
+    const convo = new GptConversation(openaiClient);
 
     const schema = JSONSchemaFormat(
       {
@@ -241,8 +241,7 @@ Nested dict (1 item long):
 
   it('should perform image recognition with manual content message', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], {
-      openaiClient,
+    const convo = new GptConversation(openaiClient, undefined, {
       model: GPT_MODEL_VISION,
     });
 
@@ -280,8 +279,7 @@ Nested dict (1 item long):
 
   it('should perform image recognition with convenience methods', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation([], {
-      openaiClient,
+    const convo = new GptConversation(openaiClient, undefined, {
       model: GPT_MODEL_VISION,
     });
 
@@ -310,7 +308,7 @@ Nested dict (1 item long):
     const NUM_SHOTGUN_BARRELS = 10;
 
     const openaiClient = createClient();
-    const convo = new GptConversation([], { openaiClient });
+    const convo = new GptConversation(openaiClient);
 
     convo.addDeveloperMessage(`
 Count the number of times each letter of the alphabet appears in a key phrase
