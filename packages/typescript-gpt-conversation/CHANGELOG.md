@@ -2,6 +2,11 @@
 
 All notable changes to this package will be documented in this file.
 
+## 2.0.0 - 2026-03-09
+
+- **Breaking:** Updated `GptConversation` calling convention.
+- Expanded documentation and added extensive new examples to reflect the new API usage patterns.
+
 ## 1.4.0 - 2026-03-07
 
 - Rewrote `gptSubmitShotgun` to build the reconciliation conversation on a separate deep copy of the original messages rather than mutating the input array.
