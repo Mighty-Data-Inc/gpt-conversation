@@ -16,18 +16,6 @@ export interface ConversationMessage {
 }
 
 /**
- * Construction-time options for {@link GptConversation}.
- *
- * @property openaiClient - The OpenAI client instance to use for API calls.
- *   Can also be set later via the `openaiClient` property.
- * @property model - The default model ID to use for submissions. Falls back
- *   to {@link GPT_MODEL_SMART} when not set.
- */
-export interface GptConversationOptions {
-  model?: string;
-}
-
-/**
  * Per-call options for {@link GptConversation.submit}.
  *
  * @property model - Overrides the conversation's default model for this call
@@ -113,11 +101,11 @@ export class GptConversation extends Array<ConversationMessage> {
   constructor(
     openaiClient?: OpenAIClientLike,
     messages?: ConversationMessage[],
-    options?: GptConversationOptions
+    model?: string
   ) {
     super(...(messages || []));
     this.#openaiClient = openaiClient;
-    this.#model = options?.model;
+    this.#model = model;
   }
 
   /**

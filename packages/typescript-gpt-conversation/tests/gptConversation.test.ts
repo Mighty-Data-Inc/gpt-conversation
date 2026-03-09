@@ -95,9 +95,7 @@ describe('GptConversation', () => {
 
   it('clone copies client and model', () => {
     const client = new FakeOpenAIClient();
-    const conversation = new GptConversation(client, undefined, {
-      model: 'gpt-custom',
-    });
+    const conversation = new GptConversation(client, undefined, 'gpt-custom');
 
     const cloned = conversation.clone();
 

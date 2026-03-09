@@ -2,10 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { OpenAI } from 'openai';
 import { describe, expect, it } from 'vitest';
-import {
-  GptConversation,
-  GptConversationOptions,
-} from '../src/gptConversation.js';
+import { GptConversation } from '../src/gptConversation.js';
 import { JSONSchemaFormat } from '../src/jsonSchemaFormat.js';
 import { GPT_MODEL_VISION } from '../src/functions.js';
 
@@ -241,9 +238,11 @@ Nested dict (1 item long):
 
   it('should perform image recognition with manual content message', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation(openaiClient, undefined, {
-      model: GPT_MODEL_VISION,
-    });
+    const convo = new GptConversation(
+      openaiClient,
+      undefined,
+      GPT_MODEL_VISION
+    );
 
     // Load the image ./fixtures/phoenix.png
     const pngBuffer = readFileSync(join(__dirname, 'fixtures', 'phoenix.png'));
@@ -279,9 +278,11 @@ Nested dict (1 item long):
 
   it('should perform image recognition with convenience methods', async () => {
     const openaiClient = createClient();
-    const convo = new GptConversation(openaiClient, undefined, {
-      model: GPT_MODEL_VISION,
-    });
+    const convo = new GptConversation(
+      openaiClient,
+      undefined,
+      GPT_MODEL_VISION
+    );
 
     // Load the image ./fixtures/phoenix.png
     const pngBuffer = readFileSync(join(__dirname, 'fixtures', 'phoenix.png'));
