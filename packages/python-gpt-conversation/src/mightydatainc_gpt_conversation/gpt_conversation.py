@@ -27,9 +27,9 @@ class GptConversation(list):
 
     def __init__(
         self,
+        openai_client: Optional[OpenAIClientLike] = None,
         messages=None,
         *,
-        openai_client: Optional[OpenAIClientLike] = None,
         model: Optional[str] = None,
     ):
         """Initialize conversation with optional list of messages."""
@@ -96,7 +96,6 @@ class GptConversation(list):
         )
 
         self.add_assistant_message(llmreply)
-        self.last_reply = llmreply
         return llmreply
 
     def add_message(self, role: str, content: Any) -> "GptConversation":
@@ -116,7 +115,8 @@ class GptConversation(list):
         return self.add_message("user", content)
 
     def add_assistant_message(self, content: Any) -> "GptConversation":
-        """Add an assistant message to the conversation."""
+        """Add an assistant message to the conversation. Updates the last_reply state."""
+        self.last_reply = content
         return self.add_message("assistant", content)
 
     def add_system_message(self, content: Any) -> "GptConversation":

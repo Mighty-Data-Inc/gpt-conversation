@@ -7,8 +7,9 @@ The project exists to remove repeated integration work from application teams. I
 ## Purpose
 
 - Keep LLM integration practical and predictable in real products.
-- Preserve behavioral parity across Python and TypeScript implementations.
 - Emphasize reusable building blocks rather than framework lock-in.
+- Reduce the size and complexity of code required for performing common tasks.
+- Preserve behavioral parity across Python and TypeScript implementations.
 
 ## Scope
 
@@ -18,7 +19,7 @@ This repository focuses on the parts of LLM development that are easy to get wro
 - Working with structured JSON outputs safely.
 - Keeping shared semantics aligned across languages.
 
-This repository is intentionally not an agent framework, orchestration platform, or full application starter.
+This repository is intentionally _not_ an agent framework, orchestration platform, or full application starter. It is, instead, a toolkit for software developers (both human and AI) to have an easier time with coding LLM-powered applications.
 
 ## Repository Layout
 

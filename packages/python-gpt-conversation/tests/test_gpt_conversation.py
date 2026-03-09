@@ -65,8 +65,8 @@ class GptConversationFrameworkBase(unittest.TestCase):
         model: Optional[str] = None,
     ) -> GptConversation:
         return GptConversation(
-            messages=messages if messages is not None else list(self.initial_messages),
             openai_client=client,
+            messages=messages if messages is not None else list(self.initial_messages),
             model=model,
         )
 
@@ -87,8 +87,22 @@ class TestConstructionAndState(GptConversationFrameworkBase):
         client = self.make_client()
 
         conversation = GptConversation(
-            messages=messages,
             openai_client=client,
+            messages=messages,
+            model="gpt-custom",
+        )
+
+        self.assertEqual(conversation, messages)
+        self.assertIs(conversation.openai_client, client)
+        self.assertEqual(conversation.model, "gpt-custom")
+
+    def test_unnamed_constructor_param_order(self):
+        messages = [{"role": "user", "content": "hello"}]
+        client = self.make_client()
+
+        conversation = GptConversation(
+            client,
+            messages,
             model="gpt-custom",
         )
 

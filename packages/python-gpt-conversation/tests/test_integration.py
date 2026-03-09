@@ -78,7 +78,7 @@ IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
 class TestIntegration(unittest.TestCase):
 
     def test_should_repeat_hello_world(self):
-        convo = GptConversation([], openai_client=make_client())
+        convo = GptConversation(make_client())
 
         convo.add_user_message(
             """
@@ -93,7 +93,7 @@ marks. Emit only the words "Hello World", capitalized as shown.
         self.assertEqual(convo.get_last_reply_str(), "Hello World")
 
     def test_should_invoke_an_llm_with_some_nominal_intelligence(self):
-        convo = GptConversation([], openai_client=make_client())
+        convo = GptConversation(make_client())
 
         # Use the submit_user_message convenience method.
         convo.submit_user_message(
@@ -111,7 +111,7 @@ please -- first letter capitalized, all other letters lower-case.
         self.assertEqual(convo.get_last_reply_str(), "Paris")
 
     def test_should_reply_with_a_general_form_json_object(self):
-        convo = GptConversation([], openai_client=make_client())
+        convo = GptConversation(make_client())
 
         convo.add_user_message(
             """
@@ -146,7 +146,7 @@ Please reply with the following JSON object, exactly as shown:
         self.assertEqual(len(convo.get_last_reply_dict_field("sample_array_data")), 3)
 
     def test_should_reply_with_structured_json_using_raw_schema(self):
-        convo = GptConversation([], openai_client=make_client())
+        convo = GptConversation(make_client())
 
         schema = {
             "format": {
@@ -206,7 +206,7 @@ Nested dict (1 item long):
         self.assertEqual(sample_array[1], 33)
 
     def test_should_reply_with_structured_json_using_json_schema_format_shorthand(self):
-        convo = GptConversation([], openai_client=make_client())
+        convo = GptConversation(make_client())
 
         schema = JSONSchemaFormat(
             {
@@ -249,7 +249,7 @@ Nested dict (1 item long):
         self.assertEqual(sample_array[1], 33)
 
     def test_should_perform_image_recognition_with_manual_content_message(self):
-        convo = GptConversation([], openai_client=make_client(), model=GPT_MODEL_VISION)
+        convo = GptConversation(make_client(), model=GPT_MODEL_VISION)
 
         img_data_url = load_image_data_url("phoenix.png")
 
@@ -276,7 +276,7 @@ Nested dict (1 item long):
         self.assertEqual(convo.get_last_reply_dict_field("image_subject_enum"), "cat")
 
     def test_should_perform_image_recognition_with_convenience_methods(self):
-        convo = GptConversation([], openai_client=make_client(), model=GPT_MODEL_VISION)
+        convo = GptConversation(make_client(), model=GPT_MODEL_VISION)
 
         img_data_url = load_image_data_url("phoenix.png")
 
@@ -297,7 +297,7 @@ Nested dict (1 item long):
         # A ridiculous number of barrels but this test needs to be reliable.
         NUM_SHOTGUN_BARRELS = 10
 
-        convo = GptConversation([], openai_client=make_client())
+        convo = GptConversation(make_client())
 
         convo.add_developer_message(
             """
