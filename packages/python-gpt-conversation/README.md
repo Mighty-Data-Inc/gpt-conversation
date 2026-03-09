@@ -15,19 +15,13 @@ OpenAI's Responses API is flexible, but application code often repeats the same 
 
 This package gives you small, composable building blocks for those recurring concerns. The design goal is to keep your app code focused on product logic while these utilities handle the repetitive conversation and formatting mechanics.
 
-## Installation
-
-```bash
-pip install mightydatainc-gpt-conversation
-```
-
 ## Components And Why They Exist
 
-| Component | Why it exists | When to use it |
-| --- | --- | --- |
-| `gpt_submit` | Centralizes a robust "submit messages and return reply" workflow, including retries and optional structured output parsing. | One-off prompts or service-layer functions where you already manage message history yourself. |
-| `GptConversation` | Wraps a message list with role-aware helpers and submit methods, so stateful chat flows stay readable and less error-prone. | Multi-turn workflows where you want to append/submit messages incrementally. |
-| `JSONSchemaFormat` | Provides a compact Python DSL to describe structured output schemas without hand-writing large JSON Schema dictionaries. | You need stricter contracts than "just return JSON" and want fields/types/ranges/enums defined up front. |
+| Component          | Why it exists                                                                                                               | When to use it                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `gpt_submit`       | Centralizes a robust "submit messages and return reply" workflow, including retries and optional structured output parsing. | One-off prompts or service-layer functions where you already manage message history yourself.            |
+| `GptConversation`  | Wraps a message list with role-aware helpers and submit methods, so stateful chat flows stay readable and less error-prone. | Multi-turn workflows where you want to append/submit messages incrementally.                             |
+| `JSONSchemaFormat` | Provides a compact Python DSL to describe structured output schemas without hand-writing large JSON Schema dictionaries.    | You need stricter contracts than "just return JSON" and want fields/types/ranges/enums defined up front. |
 
 ## Quick Start
 
@@ -177,9 +171,10 @@ print("Ultimately successful? ", questionnaire["do_they_ultimately_succeed"])
 In this example, we made the AI come up with its own document and then answer structured questions about that document. However, in practice, you could of course submit your _own_ source document (e.g. in a call to `add_user_message(...)`), and have the AI answer questions about it.
 
 Some caveats to keep in mind when using this approach:
+
 - You _must_ have a message in your conversation history that describes a JSON structure.
 - The JSON structure is not enforced by any kind of calling framework. The LLM takes your JSON structure description "under advisement", but is not obligated to adhere to it in any way.
-- Particularly large or complex structures can cause the LLM to hang. 
+- Particularly large or complex structures can cause the LLM to hang.
 
 ### Structured JSON response with OpenAI json_schema: `json_response={"format": {...}}`
 
@@ -271,6 +266,7 @@ While OpenAI's calling conventions are powerful and flexible, they are not parti
 JSONSchemaFormat takes a data structure that "looks like" the structure you want returned. It's extremely flexible (to the point of being somewhat sloppy), and not quite as expressive as the real `json_schema` structure. However, it's much more compact and readable.
 
 How to use `JSONSchemaFormat` shorthand:
+
 - A field's value is simply the type that you want that field to be returned as. E.g. `"protagonist_name": str`
 - If a field's name isn't self-explanatory, it can be specified as a tuple of type and string, where the string is a description. E.g. `"city": (str, "What city does the story take place in?")`
 - If a field is a string, then a third field in the tuple can be a list specifying valid values. E.g. `"species": (str, "What is the species of the accomplice?", ["raccoon", "squirrel", "human", "pigeon", "other"])`
@@ -397,27 +393,32 @@ Shotgunning is particularly useful when you have a multi-component AI-related ta
 Stateful conversation container built on top of `gpt_submit`.
 
 What it does:
+
 - Stores message history as a mutable list of `{role, content}` message objects.
 - Provides role-specific helpers for appending and submitting messages.
 - Tracks the latest assistant result in `last_reply` for easy typed access.
 
 Initialization:
+
 - `openai_client`: OpenAI client (or compatible object) used for submissions.
 - `messages`: Optional initial message list.
 - `model`: Optional default model used by `submit(...)` when no per-call model is provided.
 
 Core submission behavior:
+
 - `submit(...)` optionally appends a message, then calls `gpt_submit(...)` with current history.
 - If `message` is a `dict` containing `format` and `json_response` is not explicitly provided, that dict is used as `json_response`.
 - Supports per-call `model`, `json_response`, and `shotgun` options.
 - Appends the final assistant reply back into conversation history and updates `last_reply`.
 
 Message helpers:
+
 - `add_message(role, content)` plus role helpers: `add_user_message`, `add_assistant_message`, `add_system_message`, `add_developer_message`.
 - `add_image(role, text, image_data_url)` for multimodal text+image message payloads.
 - Non-string `dict` content is serialized to JSON text; list content is preserved for multimodal payloads.
 
 Submit convenience methods:
+
 - `submit_message(role, content)`
 - `submit_user_message(content)`
 - `submit_assistant_message(content)`
@@ -426,6 +427,7 @@ Submit convenience methods:
 - `submit_image(role, text, image_data_url)`
 
 Inspection and utility methods:
+
 - `get_last_message()`
 - `get_messages_by_role(role)`
 - `get_last_reply_str()`
@@ -436,6 +438,7 @@ Inspection and utility methods:
 - `assign_messages(messages)`
 
 Failure behavior:
+
 - Raises `ValueError` if `submit(...)` is called without an `openai_client`.
 - Exceptions from `gpt_submit(...)` are propagated.
 
@@ -444,6 +447,7 @@ Failure behavior:
 Primary stateless submit helper for OpenAI Responses API calls.
 
 What it does:
+
 - Submits a list of OpenAI-style messages and returns the model reply.
 - Injects a fresh `!DATETIME` system message on each call.
 - Optionally prepends a `system_announcement_message` before the datetime message.
@@ -451,6 +455,7 @@ What it does:
 - Supports JSON response modes and optional shotgunning.
 
 Arguments:
+
 - `messages`: Conversation payload in OpenAI message format.
 - `openai_client`: OpenAI client (or compatible object) exposing `responses.create(...)`.
 - `model`: Optional model override. Defaults to the package smart model.
@@ -462,23 +467,31 @@ Arguments:
 - `warning_callback`: Optional callback for non-fatal warnings/retry notices.
 
 `json_response` modes:
+
 - `None` or `False`: Return plain text.
 - `True`: Request JSON object mode (`{"format": {"type": "json_object"}}`).
 - `dict`: Use provided OpenAI text-format config.
 - `str`: Parse as JSON and use as OpenAI text-format config.
 
 Return value:
+
 - Text mode: `str` (trimmed).
 - JSON mode: parsed JSON value from the model output (commonly `dict` or `list`, but can also be scalar JSON values).
 
 Failure behavior:
+
 - Retries transient `openai.OpenAIError` failures up to `retry_limit` with backoff.
 - Retries JSON parsing failures in JSON mode.
 - Raises immediately (no retry) for authentication, permission, bad-request, and local protocol/header failures.
 
 ## Installation and usage
 
-- Package name for `pip install` is `mightydatainc-gpt-conversation`.
-- Python import package is `mightydatainc_gpt_conversation`.
-- Requires Python `>=3.13`.
+```bash
+pip install mightydatainc-gpt-conversation
+```
 
+```python
+import mightydatainc_gpt_conversation
+```
+
+Requires Python `>=3.13`.

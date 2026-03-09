@@ -15,12 +15,6 @@ OpenAI's Responses API is flexible, but application code often repeats the same 
 
 This package gives you small, composable building blocks for those recurring concerns. The design goal is to keep your app code focused on product logic while these utilities handle the repetitive conversation and formatting mechanics.
 
-## Installation
-
-```bash
-npm install @mightydatainc/gpt-conversation openai
-```
-
 ## Components And Why They Exist
 
 | Component          | Why it exists                                                                                                               | When to use it                                                                                           |
@@ -350,6 +344,8 @@ await conversation.submit(undefined, undefined, {
   }),
 });
 
+console.log(story);
+
 // Use the helper method `getLastReplyDictField(...)` to get the parsed JSON responses.
 console.log(
   'Protagonist: ',
@@ -506,6 +502,16 @@ Failure behavior:
 
 ## Installation and usage
 
-- Package name for `npm install` is `@mightydatainc/gpt-conversation`.
-- Import package is `@mightydatainc/gpt-conversation`.
-- Requires a modern Node.js runtime (ESM + async/await).
+```bash
+npm install @mightydatainc/gpt-conversation openai
+```
+
+```typescript
+import {
+  gptSubmit,
+  GptConversation,
+  JSONSchemaFormat,
+} from '@mightydatainc/gpt-conversation';
+```
+
+Requires Node.js runtime version >=24 (ESM + async/await).

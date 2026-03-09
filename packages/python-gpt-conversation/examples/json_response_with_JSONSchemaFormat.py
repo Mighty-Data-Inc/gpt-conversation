@@ -55,6 +55,8 @@ conversation.submit(
     )
 )
 
+print(story)
+
 # Use the helper method `get_last_reply_dict_field(...)` to get the parsed JSON responses.
 print(
     "Protagonist: ",

@@ -199,7 +199,7 @@ describe('GptConversation', () => {
       content: 'Return JSON only.',
     };
 
-    const result = await conversation.submit(message, null);
+    const result = await conversation.submit(message);
 
     expect(result).toEqual({ ok: true });
     expect(conversation[0]).toEqual({
@@ -225,7 +225,7 @@ describe('GptConversation', () => {
       ],
     };
 
-    const result = await conversation.submit(message, null);
+    const result = await conversation.submit(message);
 
     expect(result).toBe('Nice image!');
     expect(conversation[0]).toEqual({
