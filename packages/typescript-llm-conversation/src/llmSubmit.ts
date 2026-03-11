@@ -57,6 +57,23 @@ function isRetryableOpenAIError(error: unknown): boolean {
 }
 
 /**
+ * Returns `true` when `error` is an Anthropic SDK error that is worth retrying
+ * (e.g. rate-limit or transient server errors). Detection is based on the
+ * error's `name` property containing `"Anthropic"` or `"APIError"`.
+ *
+ * @param error - The caught value to inspect.
+ * @returns `true` if the error is a retryable Anthropic API error.
+ */
+function isRetryableAnthropicError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const name = error.name || '';
+  return name.includes('Anthropic') || name.includes('APIError');
+}
+
+/**
  * Implements the "shotgun" strategy for {@link llmSubmit}: sends `numBarrels`
  * parallel requests with identical inputs, then asks the model to examine all
  * responses and reconcile them into a single authoritative answer.
@@ -229,7 +246,8 @@ export const llmSubmit = async (
 
   // Remove any previous datetime system messages from the conversation, since we'll be
   // prepending a fresh one with the current datetime.
-  let preparedMessages = messages.filter((message: any) => {
+  let preparedMessages = JSON.parse(JSON.stringify(messages));
+  preparedMessages = preparedMessages.filter((message: any) => {
     const role = message?.role;
     const content = message?.content;
     return !(role === 'system' && `${content}`.startsWith('!DATETIME:'));
@@ -281,11 +299,82 @@ export const llmSubmit = async (
         }
       } else if (llmProviderName === 'anthropic') {
         const anthropicClient = aiClient as AIClientLike;
-        // payloadBody.max_tokens = 8192;
-        // llmResponse = await anthropicClient.messages!.create(payloadBody);
-        throw new Error(
-          'Anthropic client support not yet implemented in llmSubmit'
+
+        // A sneaky trick to make Anthropic produce JSON output in freeform mode.
+        let outputNeedsPrependedCurlyBrace = false;
+
+        // Anthropic only understands "user" and "assistant".
+        // It requires "system" to all be one prompt at the beginning, and it doesn't know what
+        // "developer" is at all.
+        // We'll build an Anthropic system prompt by popping off beginning messages and
+        // concatenating them as long as they're "system" or "developer".
+        // Then, we'll go through the remaining messages, and change all "system" and "developer"
+        // roles to "user".
+        let anthropicSystemPrompt = '';
+        while (preparedMessages.length > 0) {
+          const firstMsg = preparedMessages[0];
+          if (!['system', 'developer'].includes(firstMsg?.role)) {
+            // Stop popping once we hit the first non-system/developer message.
+            break;
+          }
+          anthropicSystemPrompt += `${firstMsg.content}\n\n`;
+          preparedMessages.shift();
+        }
+        anthropicSystemPrompt = anthropicSystemPrompt.trim();
+
+        const payloadBody: any = {
+          model,
+          max_tokens: 16384,
+          messages: preparedMessages,
+        };
+        if (anthropicSystemPrompt) {
+          payloadBody.system = anthropicSystemPrompt;
+        }
+
+        if (options.jsonResponse) {
+          if (typeof options.jsonResponse === 'boolean') {
+            // Freeform JSON response requested, with no schema enforcement.
+            // We'll have to rely on parseFirstJsonValue to extract the JSON
+            // from the model's response. We *can*, however, coerce Claude into
+            // producing JSON output, by exploiting its belief that, if the last
+            // message was from the assistant, then the next message should be a
+            // continuation. Remember to add the curly brace back onto the front!
+            outputNeedsPrependedCurlyBrace = true;
+            payloadBody.messages.push({
+              role: 'assistant',
+              content: `Certainly! Here is the data you're requesting, in JSON format:\n\n{`,
+            });
+          } else {
+            // JSON response with a provided JSON schema for format enforcement.
+            // Anthropic uses output_config.format with the schema.
+            payloadBody.output_config = JSON.parse(
+              JSON.stringify(options.jsonResponse)
+            );
+          }
+        }
+
+        const llmResponse = await anthropicClient.messages!.create(payloadBody);
+
+        const textBlocks = llmResponse.content.filter(
+          (block: any) => block.type === 'text'
         );
+        llmReply = textBlocks
+          .map((block: any) => block.text)
+          .join('')
+          .trim();
+
+        if (outputNeedsPrependedCurlyBrace) {
+          llmReply = `{${llmReply}`;
+        }
+
+        if (
+          options.warningCallback &&
+          llmResponse.stop_reason === 'max_tokens'
+        ) {
+          options.warningCallback(
+            `ERROR: Anthropic API response was truncated (max_tokens reached)`
+          );
+        }
       } else {
         throw new Error(`Unsupported LLM provider: ${llmProviderName}`);
       }
@@ -306,7 +395,7 @@ export const llmSubmit = async (
         continue;
       }
 
-      if (isRetryableOpenAIError(error)) {
+      if (isRetryableOpenAIError(error) || isRetryableAnthropicError(error)) {
         failedError = error;
         if (options.warningCallback) {
           options.warningCallback(

@@ -1,25 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import { GPT_MODEL_SMART, OpenAIClientLike } from '../src/llmProviders.js';
+import {
+  CLAUDE_MODEL_SMART,
+  AnthropicClientLike,
+} from '../src/llmProviders.js';
 import { llmSubmit } from '../src/llmSubmit.js';
 
-class FakeResponse {
-  output_text: any;
-  error: any;
-  incomplete_details: any;
+class FakeAnthropicResponse {
+  content: any;
+  stop_reason: string;
 
-  constructor(
-    outputText: any = '',
-    error: any = null,
-    incompleteDetails: any = null
-  ) {
-    this.output_text = outputText;
-    this.error = error;
-    this.incomplete_details = incompleteDetails;
+  constructor(text: any = '', stopReason: string = 'end_turn') {
+    if (text === null) {
+      this.content = null;
+    } else {
+      this.content = [{ type: 'text', text }];
+    }
+    this.stop_reason = stopReason;
   }
 }
 
-class FakeResponsesAPI {
+class FakeMessagesAPI {
   sideEffects: any[];
   createCalls: Array<Record<string, unknown>>;
 
@@ -32,7 +33,7 @@ class FakeResponsesAPI {
     this.createCalls.push(kwargs);
 
     if (!this.sideEffects.length) {
-      return new FakeResponse();
+      return new FakeAnthropicResponse();
     }
 
     const next = this.sideEffects.shift();
@@ -43,18 +44,18 @@ class FakeResponsesAPI {
   }
 }
 
-class FakeOpenAIClient implements OpenAIClientLike {
-  responses: FakeResponsesAPI;
+class FakeAnthropicClient implements AnthropicClientLike {
+  messages: FakeMessagesAPI;
 
   constructor(sideEffects: any[] = []) {
-    this.responses = new FakeResponsesAPI(sideEffects);
+    this.messages = new FakeMessagesAPI(sideEffects);
   }
 }
 
-class OpenAIError extends Error {
+class AnthropicError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'OpenAIError';
+    this.name = 'AnthropicError';
   }
 }
 
@@ -65,9 +66,9 @@ class BadRequestError extends Error {
   }
 }
 
-describe('llmSubmit', () => {
-  it('uses default model and omits text config when json mode is disabled', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
+describe('Claude llmSubmit', () => {
+  it('uses default model when json mode is disabled', async () => {
+    const client = new FakeAnthropicClient([new FakeAnthropicResponse('ok')]);
 
     const result = await llmSubmit(
       [{ role: 'user', content: 'Hello' }],
@@ -75,28 +76,27 @@ describe('llmSubmit', () => {
     );
 
     expect(result).toBe('ok');
-    expect(client.responses.createCalls).toHaveLength(1);
-    const request = client.responses.createCalls[0];
-    expect(request.model).toBe(GPT_MODEL_SMART);
-    expect('text' in request).toBe(false);
+    expect(client.messages.createCalls).toHaveLength(1);
+    const request = client.messages.createCalls[0];
+    expect(request.model).toBe(CLAUDE_MODEL_SMART);
   });
 
-  it('prepends datetime system message and keeps user messages after it', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
+  it('passes datetime in system param and keeps user messages in messages param', async () => {
+    const client = new FakeAnthropicClient([new FakeAnthropicResponse('ok')]);
     const messages = [{ role: 'user', content: 'Hello' }];
 
     await llmSubmit(messages, client);
 
-    const submitted = client.responses.createCalls[0].input as Array<
-      Record<string, string>
-    >;
-    expect(submitted[0].role).toBe('system');
-    expect(submitted[0].content.startsWith('!DATETIME:')).toBe(true);
-    expect(submitted.slice(1)).toEqual(messages);
+    const request = client.messages.createCalls[0];
+    // System messages (including datetime) go in the 'system' param
+    expect(typeof request.system).toBe('string');
+    expect((request.system as string).startsWith('!DATETIME:')).toBe(true);
+    // Only non-system messages go in 'messages'
+    expect(request.messages).toEqual(messages);
   });
 
   it('replaces stale datetime messages and keeps other system messages', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
+    const client = new FakeAnthropicClient([new FakeAnthropicResponse('ok')]);
     const messages = [
       { role: 'system', content: '!DATETIME: old timestamp' },
       { role: 'system', content: 'keep me' },
@@ -105,21 +105,25 @@ describe('llmSubmit', () => {
 
     await llmSubmit(messages, client);
 
-    const submitted = client.responses.createCalls[0].input as Array<
-      Record<string, string>
-    >;
-    const datetimeMessages = submitted.filter(
-      (m) =>
-        m.role === 'system' &&
-        typeof m.content === 'string' &&
-        m.content.startsWith('!DATETIME:')
-    );
-    expect(datetimeMessages).toHaveLength(1);
-    expect(submitted.slice(1)).toEqual(messages.slice(1));
+    const request = client.messages.createCalls[0];
+    const systemText = request.system as string;
+    // Should have exactly one datetime message
+    const datetimeMatches = systemText.match(/!DATETIME:/g);
+    expect(datetimeMatches).toHaveLength(1);
+    // Should preserve other system messages
+    expect(systemText).toContain('keep me');
+    // Non-system messages should only contain the user message
+    expect(request.messages).toEqual([{ role: 'user', content: 'hello' }]);
   });
 
-  it('supports json_response=true with json_object text format', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('{"value":1}')]);
+  it('supports json_response=true and parses JSON', async () => {
+    // Our code provides the leading curly brace. In the real world, Claude will
+    // pick up where it left off and produce the rest of the JSON object, without
+    // the leading curly brace. We thus omit the leading curly brace in our virtual
+    // response to simulate this.
+    const client = new FakeAnthropicClient([
+      new FakeAnthropicResponse('"value":1}'),
+    ]);
 
     const result = await llmSubmit(
       [{ role: 'user', content: 'json' }],
@@ -130,13 +134,11 @@ describe('llmSubmit', () => {
     );
 
     expect(result).toEqual({ value: 1 });
-    const request = client.responses.createCalls[0];
-    expect(request.text).toEqual({ format: { type: 'json_object' } });
   });
 
   it('parses first json object when response contains trailing json', async () => {
-    const client = new FakeOpenAIClient([
-      new FakeResponse('{"first":1}{"second":2}'),
+    const client = new FakeAnthropicClient([
+      new FakeAnthropicResponse('"first":1}{"second":2}'),
     ]);
 
     const result = await llmSubmit(
@@ -150,11 +152,11 @@ describe('llmSubmit', () => {
     expect(result).toEqual({ first: 1 });
   });
 
-  it('retries openai errors and succeeds', async () => {
+  it('retries anthropic errors and succeeds', async () => {
     const warnings: string[] = [];
-    const client = new FakeOpenAIClient([
-      new OpenAIError('temporary'),
-      new FakeResponse('ok'),
+    const client = new FakeAnthropicClient([
+      new AnthropicError('temporary'),
+      new FakeAnthropicResponse('ok'),
     ]);
 
     const result = await llmSubmit(
@@ -168,18 +170,18 @@ describe('llmSubmit', () => {
     );
 
     expect(result).toBe('ok');
-    expect(client.responses.createCalls).toHaveLength(2);
+    expect(client.messages.createCalls).toHaveLength(2);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0].toLowerCase()).toContain('openai');
+    expect(warnings[0].toLowerCase()).toContain('anthropic');
     expect(warnings[0]).toContain('API error');
     expect(warnings[0]).toContain('Retrying (attempt 1 of 2)');
   });
 
   it('retries json decode errors and succeeds', async () => {
     const warnings: string[] = [];
-    const client = new FakeOpenAIClient([
-      new FakeResponse('not json'),
-      new FakeResponse('{"ok":true}'),
+    const client = new FakeAnthropicClient([
+      new FakeAnthropicResponse('not json'),
+      new FakeAnthropicResponse('"ok":true}'),
     ]);
 
     const result = await llmSubmit(
@@ -193,16 +195,16 @@ describe('llmSubmit', () => {
     );
 
     expect(result).toEqual({ ok: true });
-    expect(client.responses.createCalls).toHaveLength(2);
+    expect(client.messages.createCalls).toHaveLength(2);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('JSON decode error');
   });
 
   it('throws BadRequestError immediately without retry', async () => {
     const badRequestError = new BadRequestError(
-      "Invalid type for 'input[11].content': expected one of an array of objects or string, but got an object instead."
+      "Invalid type for 'messages': expected array of message objects."
     );
-    const client = new FakeOpenAIClient([badRequestError]);
+    const client = new FakeAnthropicClient([badRequestError]);
 
     await expect(
       llmSubmit([{ role: 'user', content: 'hello' }], client, {
@@ -211,11 +213,11 @@ describe('llmSubmit', () => {
       })
     ).rejects.toBeInstanceOf(BadRequestError);
 
-    expect(client.responses.createCalls).toHaveLength(1);
+    expect(client.messages.createCalls).toHaveLength(1);
   });
 
-  it('throws for malformed response output_text without retry', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse(null)]);
+  it('throws for malformed response content without retry', async () => {
+    const client = new FakeAnthropicClient([new FakeAnthropicResponse(null)]);
 
     await expect(
       llmSubmit([{ role: 'user', content: 'hello' }], client, {
@@ -223,11 +225,41 @@ describe('llmSubmit', () => {
       })
     ).rejects.toBeInstanceOf(TypeError);
 
-    expect(client.responses.createCalls).toHaveLength(1);
+    expect(client.messages.createCalls).toHaveLength(1);
+  });
+
+  it('sends output_config when jsonResponse is a schema object', async () => {
+    const schema = {
+      format: {
+        type: 'json_schema',
+        name: 'test_output',
+        schema: {
+          type: 'object',
+          properties: { value: { type: 'number' } },
+          required: ['value'],
+        },
+      },
+    };
+    const client = new FakeAnthropicClient([
+      new FakeAnthropicResponse('{"value":42}'),
+    ]);
+
+    const result = await llmSubmit(
+      [{ role: 'user', content: 'give me a number' }],
+      client,
+      { jsonResponse: schema }
+    );
+
+    expect(result).toEqual({ value: 42 });
+    const request = client.messages.createCalls[0];
+    // Anthropic structured output uses output_config.format
+    expect(request.output_config).toEqual(schema);
   });
 
   it('throws immediately if jsonResponse object cannot be JSONized', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('{"unused":true}')]);
+    const client = new FakeAnthropicClient([
+      new FakeAnthropicResponse('{"unused":true}'),
+    ]);
 
     const recursiveObject: any = { foo: 'bar' };
     recursiveObject.self = recursiveObject;
@@ -238,19 +270,19 @@ describe('llmSubmit', () => {
       })
     ).rejects.toBeInstanceOf(TypeError);
 
-    expect(client.responses.createCalls).toHaveLength(0);
+    expect(client.messages.createCalls).toHaveLength(0);
   });
 });
 
-describe('llmSubmit shotgun', () => {
+describe('Claude llmSubmit shotgun', () => {
   const messages = [{ role: 'user', content: 'Hello' }];
 
-  function makeClient(): FakeOpenAIClient {
-    return new FakeOpenAIClient();
+  function makeClient(): FakeAnthropicClient {
+    return new FakeAnthropicClient();
   }
 
   async function callSubmit(
-    client: FakeOpenAIClient,
+    client: FakeAnthropicClient,
     options: Record<string, unknown> = {}
   ) {
     return llmSubmit(messages, client, options as any);
@@ -259,15 +291,15 @@ describe('llmSubmit shotgun', () => {
   it('api calls increase linearly with shotgun count', async () => {
     const client3 = makeClient();
     await callSubmit(client3, { shotgun: 3 });
-    const numApiCallsWithShotgun3 = client3.responses.createCalls.length;
+    const numApiCallsWithShotgun3 = client3.messages.createCalls.length;
 
     const client6 = makeClient();
     await callSubmit(client6, { shotgun: 6 });
-    const numApiCallsWithShotgun6 = client6.responses.createCalls.length;
+    const numApiCallsWithShotgun6 = client6.messages.createCalls.length;
 
     const client9 = makeClient();
     await callSubmit(client9, { shotgun: 9 });
-    const numApiCallsWithShotgun9 = client9.responses.createCalls.length;
+    const numApiCallsWithShotgun9 = client9.messages.createCalls.length;
 
     // Confirm that it's a linear increase.
     // Verify that f(9) - f(6) == f(6) - f(3)
@@ -279,11 +311,11 @@ describe('llmSubmit shotgun', () => {
   it('shotgun=0 is same as no shotgun', async () => {
     const clientNone = makeClient();
     await callSubmit(clientNone);
-    const numApiCallsWithNoShotgun = clientNone.responses.createCalls.length;
+    const numApiCallsWithNoShotgun = clientNone.messages.createCalls.length;
 
     const client0 = makeClient();
     await callSubmit(client0, { shotgun: 0 });
-    const numApiCallsWithShotgun0 = client0.responses.createCalls.length;
+    const numApiCallsWithShotgun0 = client0.messages.createCalls.length;
 
     expect(numApiCallsWithShotgun0).toBe(numApiCallsWithNoShotgun);
   });
@@ -291,11 +323,11 @@ describe('llmSubmit shotgun', () => {
   it('shotgun=1 is same as no shotgun', async () => {
     const clientNone = makeClient();
     await callSubmit(clientNone);
-    const numApiCallsWithNoShotgun = clientNone.responses.createCalls.length;
+    const numApiCallsWithNoShotgun = clientNone.messages.createCalls.length;
 
     const client1 = makeClient();
     await callSubmit(client1, { shotgun: 1 });
-    const numApiCallsWithShotgun1 = client1.responses.createCalls.length;
+    const numApiCallsWithShotgun1 = client1.messages.createCalls.length;
 
     expect(numApiCallsWithShotgun1).toBe(numApiCallsWithNoShotgun);
   });
@@ -303,11 +335,11 @@ describe('llmSubmit shotgun', () => {
   it('shotgun=2 makes more calls than no shotgun', async () => {
     const clientNone = makeClient();
     await callSubmit(clientNone);
-    const numApiCallsWithNoShotgun = clientNone.responses.createCalls.length;
+    const numApiCallsWithNoShotgun = clientNone.messages.createCalls.length;
 
     const client2 = makeClient();
     await callSubmit(client2, { shotgun: 2 });
-    const numApiCallsWithShotgun2 = client2.responses.createCalls.length;
+    const numApiCallsWithShotgun2 = client2.messages.createCalls.length;
 
     expect(numApiCallsWithShotgun2).toBeGreaterThan(numApiCallsWithNoShotgun);
   });
@@ -320,15 +352,15 @@ describe('llmSubmit shotgun', () => {
     // invocations include.
     const clientNone = makeClient();
     await callSubmit(clientNone);
-    const numApiCallsWithNoShotgun = clientNone.responses.createCalls.length;
+    const numApiCallsWithNoShotgun = clientNone.messages.createCalls.length;
 
     const client3 = makeClient();
     await callSubmit(client3, { shotgun: 3 });
-    const numApiCallsWithShotgun3 = client3.responses.createCalls.length;
+    const numApiCallsWithShotgun3 = client3.messages.createCalls.length;
 
     const client6 = makeClient();
     await callSubmit(client6, { shotgun: 6 });
-    const numApiCallsWithShotgun6 = client6.responses.createCalls.length;
+    const numApiCallsWithShotgun6 = client6.messages.createCalls.length;
 
     const delta3FromNoShotgun =
       numApiCallsWithShotgun3 - numApiCallsWithNoShotgun;
