@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { GptConversation } from '../src/gptConversation.js';
+import { LLMConversation } from '../src/llmConversation.js';
 
 class FakeResponse {
   output_text: any;
@@ -50,18 +50,18 @@ class FakeOpenAIClient {
   }
 }
 
-describe('GptConversation', () => {
+describe('LLMConversation', () => {
   it('defaults to empty state with no client or model', () => {
-    const conversation = new GptConversation();
+    const conversation = new LLMConversation();
 
     expect(conversation).toEqual([]);
-    expect(conversation.openaiClient).toBeUndefined();
+    expect(conversation.aiClient).toBeUndefined();
     expect(conversation.model).toBeUndefined();
     expect(conversation.lastReply).toBeNull();
   });
 
   it('assignMessages replaces contents and returns self', () => {
-    const conversation = new GptConversation(undefined, [
+    const conversation = new LLMConversation(undefined, [
       { role: 'user', content: 'old' },
     ]);
     const next = [
@@ -77,7 +77,7 @@ describe('GptConversation', () => {
 
   it('clone deep copies messages instead of preserving message references', () => {
     const client = new FakeOpenAIClient();
-    const conversation = new GptConversation(client, [
+    const conversation = new LLMConversation(client, [
       {
         role: 'user',
         content: 'foo',
@@ -95,17 +95,17 @@ describe('GptConversation', () => {
 
   it('clone copies client and model', () => {
     const client = new FakeOpenAIClient();
-    const conversation = new GptConversation(client, undefined, 'gpt-custom');
+    const conversation = new LLMConversation(client, undefined, 'gpt-custom');
 
     const cloned = conversation.clone();
 
-    expect(cloned.openaiClient).toBe(client);
+    expect(cloned.aiClient).toBe(client);
     expect(cloned.model).toBe('gpt-custom');
   });
 
   it('clone deep-copies lastReply', () => {
     const client = new FakeOpenAIClient();
-    const conversation = new GptConversation(client, [
+    const conversation = new LLMConversation(client, [
       { role: 'user', content: 'hello' },
     ]);
     conversation.lastReply = { result: 'ok' };
@@ -119,7 +119,7 @@ describe('GptConversation', () => {
   });
 
   it('addMessage serializes object content as pretty JSON', () => {
-    const conversation = new GptConversation();
+    const conversation = new LLMConversation();
 
     conversation.addMessage('user', { a: 1 });
 
@@ -130,7 +130,7 @@ describe('GptConversation', () => {
   });
 
   it('role-specific helpers add expected role labels', () => {
-    const conversation = new GptConversation();
+    const conversation = new LLMConversation();
 
     conversation.addUserMessage('u');
     conversation.addAssistantMessage('a');
@@ -146,7 +146,7 @@ describe('GptConversation', () => {
   });
 
   it('addImage appends a multi-modal message with text and image parts', () => {
-    const conversation = new GptConversation();
+    const conversation = new LLMConversation();
     const imgDataUrl = 'data:image/png;base64,abc123';
 
     const returned = conversation.addImage(
@@ -166,7 +166,7 @@ describe('GptConversation', () => {
   });
 
   it('submit throws if no openai client is configured', async () => {
-    const conversation = new GptConversation(undefined, [
+    const conversation = new LLMConversation(undefined, [
       { role: 'user', content: 'hello' },
     ]);
 
@@ -177,7 +177,7 @@ describe('GptConversation', () => {
 
   it('submit appends user message then assistant reply', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('assistant reply')]);
-    const conversation = new GptConversation(client);
+    const conversation = new LLMConversation(client);
 
     const result = await conversation.submit('hello');
 
@@ -191,7 +191,7 @@ describe('GptConversation', () => {
 
   it('submit infers jsonResponse and role from dict-like message', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('{"ok": true}')]);
-    const conversation = new GptConversation(client);
+    const conversation = new LLMConversation(client);
 
     const message = {
       format: { type: 'json_object' },
@@ -214,7 +214,7 @@ describe('GptConversation', () => {
 
   it('submit passes through array content for multi-modal messages', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('Nice image!')]);
-    const conversation = new GptConversation(client);
+    const conversation = new LLMConversation(client);
 
     const imgDataUrl = 'data:image/png;base64,abc123';
     const message = {
@@ -249,7 +249,7 @@ describe('GptConversation', () => {
       new FakeResponse('r4'),
       new FakeResponse('r5'),
     ]);
-    const conversation = new GptConversation(client);
+    const conversation = new LLMConversation(client);
 
     await expect(conversation.submitMessage('system', 'm1')).resolves.toBe(
       'r1'
@@ -265,10 +265,10 @@ describe('GptConversation', () => {
   });
 
   it('lastReply accessors enforce expected types', () => {
-    const conversation = new GptConversation();
+    const conversation = new LLMConversation();
 
     // NOTE: This is something we should never do in practice.
-    // We should never directly set lastReply in a GptConversation object.
+    // We should never directly set lastReply in a LLMConversation object.
     conversation.addAssistantMessage('hello');
 
     expect(conversation.getLastReplyStr()).toBe('hello');

@@ -1,21 +1,3 @@
-export const GPT_MODEL_CHEAP = 'gpt-4.1-nano';
-export const GPT_MODEL_SMART = 'gpt-4.1';
-export const GPT_MODEL_VISION = 'gpt-4.1';
-
-const GPT_RETRY_LIMIT_DEFAULT = 5;
-const GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT = 30;
-
-/**
- * Type guard that returns `true` when `value` is a plain, non-null, non-array
- * object — i.e. a `Record<string, unknown>`.
- *
- * @param value - The value to test.
- * @returns `true` if `value` is a plain object record.
- */
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 /**
  * OpenAI's API, even when called with a JSON schema, will often return text that is not
  * valid JSON. It's often because the model will add extra text after the end of its valid

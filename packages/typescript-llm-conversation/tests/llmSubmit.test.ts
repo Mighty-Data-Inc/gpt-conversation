@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { GPT_MODEL_SMART, gptSubmit } from '../src/gptSubmit.js';
-import { OpenAIClientLike } from '../src/llmProviders.js';
+import { GPT_MODEL_SMART, OpenAIClientLike } from '../src/llmProviders.js';
+import { llmSubmit } from '../src/llmSubmit.js';
 
 class FakeResponse {
   output_text: any;
@@ -65,11 +65,11 @@ class BadRequestError extends Error {
   }
 }
 
-describe('gptSubmit', () => {
+describe('llmSubmit', () => {
   it('uses default model and omits text config when json mode is disabled', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('ok')]);
 
-    const result = await gptSubmit(
+    const result = await llmSubmit(
       [{ role: 'user', content: 'Hello' }],
       client
     );
@@ -85,7 +85,7 @@ describe('gptSubmit', () => {
     const client = new FakeOpenAIClient([new FakeResponse('ok')]);
     const messages = [{ role: 'user', content: 'Hello' }];
 
-    await gptSubmit(messages, client);
+    await llmSubmit(messages, client);
 
     const submitted = client.responses.createCalls[0].input as Array<
       Record<string, string>
@@ -103,7 +103,7 @@ describe('gptSubmit', () => {
       { role: 'user', content: 'hello' },
     ];
 
-    await gptSubmit(messages, client);
+    await llmSubmit(messages, client);
 
     const submitted = client.responses.createCalls[0].input as Array<
       Record<string, string>
@@ -121,7 +121,7 @@ describe('gptSubmit', () => {
   it('supports json_response=true with json_object text format', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('{"value":1}')]);
 
-    const result = await gptSubmit(
+    const result = await llmSubmit(
       [{ role: 'user', content: 'json' }],
       client,
       {
@@ -134,48 +134,12 @@ describe('gptSubmit', () => {
     expect(request.text).toEqual({ format: { type: 'json_object' } });
   });
 
-  it('deep copies json schema dict and appends no-unicode note without mutating input', async () => {
-    const schema = {
-      format: {
-        type: 'json_schema',
-        name: 'answer',
-        description: 'Return answer',
-        schema: {
-          type: 'object',
-          properties: { answer: { type: 'string' } },
-          required: ['answer'],
-        },
-      },
-    };
-
-    const client = new FakeOpenAIClient([new FakeResponse('{"answer":"ok"}')]);
-
-    const result = await gptSubmit(
-      [{ role: 'user', content: 'json' }],
-      client,
-      {
-        jsonResponse: schema,
-      }
-    );
-
-    expect(result).toEqual({ answer: 'ok' });
-    expect(schema.format.description).toBe('Return answer');
-
-    const submitted = client.responses.createCalls[0].text as Record<
-      string,
-      any
-    >;
-    expect(submitted.format.description).toContain(
-      'ABSOLUTELY NO UNICODE ALLOWED'
-    );
-  });
-
   it('parses first json object when response contains trailing json', async () => {
     const client = new FakeOpenAIClient([
       new FakeResponse('{"first":1}{"second":2}'),
     ]);
 
-    const result = await gptSubmit(
+    const result = await llmSubmit(
       [{ role: 'user', content: 'json' }],
       client,
       {
@@ -193,20 +157,21 @@ describe('gptSubmit', () => {
       new FakeResponse('ok'),
     ]);
 
-    const result = await gptSubmit(
+    const result = await llmSubmit(
       [{ role: 'user', content: 'hello' }],
       client,
       {
         retryLimit: 2,
         retryBackoffTimeSeconds: 0,
-        warningCallback: (message) => warnings.push(message),
+        warningCallback: (message: any) => warnings.push(message),
       }
     );
 
     expect(result).toBe('ok');
     expect(client.responses.createCalls).toHaveLength(2);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('OpenAI API error');
+    expect(warnings[0].toLowerCase()).toContain('openai');
+    expect(warnings[0]).toContain('API error');
     expect(warnings[0]).toContain('Retrying (attempt 1 of 2)');
   });
 
@@ -217,7 +182,7 @@ describe('gptSubmit', () => {
       new FakeResponse('{"ok":true}'),
     ]);
 
-    const result = await gptSubmit(
+    const result = await llmSubmit(
       [{ role: 'user', content: 'hello' }],
       client,
       {
@@ -240,7 +205,7 @@ describe('gptSubmit', () => {
     const client = new FakeOpenAIClient([badRequestError]);
 
     await expect(
-      gptSubmit([{ role: 'user', content: 'hello' }], client, {
+      llmSubmit([{ role: 'user', content: 'hello' }], client, {
         retryLimit: 5,
         retryBackoffTimeSeconds: 30,
       })
@@ -253,7 +218,7 @@ describe('gptSubmit', () => {
     const client = new FakeOpenAIClient([new FakeResponse(null)]);
 
     await expect(
-      gptSubmit([{ role: 'user', content: 'hello' }], client, {
+      llmSubmit([{ role: 'user', content: 'hello' }], client, {
         retryLimit: 5,
       })
     ).rejects.toBeInstanceOf(TypeError);
@@ -261,30 +226,23 @@ describe('gptSubmit', () => {
     expect(client.responses.createCalls).toHaveLength(1);
   });
 
-  it('throws immediately if jsonResponse string is invalid json', async () => {
+  it('throws immediately if jsonResponse object cannot be JSONized', async () => {
     const client = new FakeOpenAIClient([new FakeResponse('{"unused":true}')]);
 
+    const recursiveObject: any = { foo: 'bar' };
+    recursiveObject.self = recursiveObject;
+
     await expect(
-      gptSubmit([{ role: 'user', content: 'hello' }], client, {
-        jsonResponse: '{not valid json',
+      llmSubmit([{ role: 'user', content: 'hello' }], client, {
+        jsonResponse: recursiveObject,
       })
-    ).rejects.toBeInstanceOf(SyntaxError);
+    ).rejects.toBeInstanceOf(TypeError);
 
     expect(client.responses.createCalls).toHaveLength(0);
   });
-
-  it('throws unknown error when retryLimit is zero', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
-
-    await expect(
-      gptSubmit([{ role: 'user', content: 'hello' }], client, {
-        retryLimit: 0,
-      })
-    ).rejects.toThrow('Unknown error occurred in gptSubmit');
-  });
 });
 
-describe('gptSubmit shotgun', () => {
+describe('llmSubmit shotgun', () => {
   const messages = [{ role: 'user', content: 'Hello' }];
 
   function makeClient(): FakeOpenAIClient {
@@ -295,7 +253,7 @@ describe('gptSubmit shotgun', () => {
     client: FakeOpenAIClient,
     options: Record<string, unknown> = {}
   ) {
-    return gptSubmit(messages, client, options as any);
+    return llmSubmit(messages, client, options as any);
   }
 
   it('api calls increase linearly with shotgun count', async () => {

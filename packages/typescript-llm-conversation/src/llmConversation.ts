@@ -1,5 +1,10 @@
-import { GPT_MODEL_SMART, gptSubmit } from './gptSubmit.js';
-import { OpenAIClientLike } from './llmProviders.js';
+import {
+  AIClientLike,
+  getModelName,
+  identifyLLMProvider,
+  LLMProviderName,
+} from './index.js';
+import { llmSubmit } from './llmSubmit.js';
 
 /**
  * A single message in a conversation, with a role (e.g. `"user"`,
@@ -13,63 +18,51 @@ export interface ConversationMessage {
 }
 
 /**
- * Per-call options for {@link GptConversation.submit}.
+ * Per-call options for {@link LLMConversation.submit}.
  *
  * @property model - Overrides the conversation's default model for this call
  *   only.
  * @property jsonResponse - When `true`, requests a plain JSON object response.
- *   When a `Record` or JSON string, that value is forwarded as the `text`
- *   format parameter (i.e. a JSON schema). Defaults to `undefined` (plain
- *   text).
+ *   When an object, that object is forwarded to the model as a JSON schema.
  * @property shotgun - When greater than 1, fires this many parallel requests
  *   and reconciles the results. See {@link gptSubmit} for details.
  */
 export interface SubmitOptions {
   model?: string;
-  jsonResponse?: boolean | Record<string, unknown> | string;
+  jsonResponse?: boolean | Record<string, unknown>;
   shotgun?: number;
-}
-
-/**
- * Type guard that returns `true` when `value` is a plain, non-null, non-array
- * object.
- *
- * @param value - The value to test.
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
  * A stateful conversation wrapper around the OpenAI Responses API.
  *
- * `GptConversation` extends `Array<ConversationMessage>` so the message
+ * `LLMConversation` extends `Array<ConversationMessage>` so the message
  * history can be iterated, spread, and indexed directly. Helper methods cover
  * the full lifecycle: adding messages, submitting to the API, and reading back
  * the last reply in various forms.
  *
  * @example
  * ```ts
- * const convo = new GptConversation([], { openaiClient: client });
+ * const convo = new LLMConversation([], { openaiClient: client });
  * await convo.submitUserMessage('Hello!');
  * console.log(convo.getLastReplyStr());
  * ```
  */
-export class GptConversation extends Array<ConversationMessage> {
+export class LLMConversation extends Array<ConversationMessage> {
   static get [Symbol.species](): ArrayConstructor {
     return Array;
   }
 
-  #openaiClient?: OpenAIClientLike;
+  #aiClient?: AIClientLike;
   #model?: string;
   #lastReply: unknown = null;
 
-  get openaiClient(): OpenAIClientLike | undefined {
-    return this.#openaiClient;
+  get aiClient(): AIClientLike | undefined {
+    return this.#aiClient;
   }
 
-  set openaiClient(value: OpenAIClientLike | undefined) {
-    this.#openaiClient = value;
+  set aiClient(value: AIClientLike | undefined) {
+    this.#aiClient = value;
   }
 
   get model(): string | undefined {
@@ -88,20 +81,27 @@ export class GptConversation extends Array<ConversationMessage> {
     this.#lastReply = value;
   }
 
+  get LLMProvider(): LLMProviderName | undefined {
+    if (!this.#aiClient) {
+      return undefined;
+    }
+    return identifyLLMProvider(this.#aiClient);
+  }
+
   /**
-   * Creates a new `GptConversation`, optionally pre-populated with messages
+   * Creates a new `LLMConversation`, optionally pre-populated with messages
    * and configured with an OpenAI client and model.
    *
    * @param messages - Initial conversation history.
    * @param options - Optional client and model defaults.
    */
   constructor(
-    openaiClient?: OpenAIClientLike,
+    aiClient?: AIClientLike,
     messages?: ConversationMessage[],
     model?: string
   ) {
     super(...(messages || []));
-    this.#openaiClient = openaiClient;
+    this.#aiClient = aiClient;
     this.#model = model;
   }
 
@@ -125,12 +125,12 @@ export class GptConversation extends Array<ConversationMessage> {
    * Returns a deep clone of this conversation, including all messages,
    * member values, and the `openaiClient` reference.
    *
-   * @returns A new `GptConversation` instance with the same history and
+   * @returns A new `LLMConversation` instance with the same history and
    *   configuration.
    */
-  clone(): GptConversation {
-    const retval = new GptConversation();
-    retval.openaiClient = this.openaiClient;
+  clone(): LLMConversation {
+    const retval = new LLMConversation();
+    retval.aiClient = this.aiClient;
     retval.model = this.model;
 
     if (
@@ -177,43 +177,34 @@ export class GptConversation extends Array<ConversationMessage> {
     role?: string,
     options: SubmitOptions = {}
   ): Promise<unknown> {
-    if (!role) {
-      role = 'user';
-      if (isRecord(message) && typeof message.role === 'string') {
-        role = message.role;
-      }
+    if (!this.aiClient) {
+      throw new Error('AI client is not set. Please provide an AI client.');
     }
-
-    if (!this.openaiClient) {
-      throw new Error(
-        'OpenAI client is not set. Please provide an OpenAI client.'
-      );
-    }
-
-    const model = options.model || this.model || GPT_MODEL_SMART;
-    let jsonResponse = options.jsonResponse;
 
     if (message) {
-      let contentToAdd: unknown = message;
-
-      if (isRecord(message)) {
-        if (!jsonResponse && 'format' in message) {
-          jsonResponse = message;
-        }
-
-        if (!role && typeof message.role === 'string') {
-          role = message.role;
-        }
-
-        if ('content' in message) {
-          contentToAdd = message.content ?? '';
-        }
+      let messageObj = {
+        role: 'user',
+        content: '',
+      };
+      if (typeof message === 'string') {
+        messageObj.content = message;
+      } else {
+        messageObj = { ...messageObj, ...message };
       }
 
-      this.addMessage(role || 'user', contentToAdd);
+      if (role) {
+        messageObj.role = role;
+      }
+      this.addMessage(messageObj.role, messageObj.content);
     }
 
-    const llmReply = await gptSubmit(this.toDictList(), this.openaiClient, {
+    const model =
+      options.model ||
+      this.model ||
+      getModelName(this.LLMProvider || 'openai', 'smart');
+    let jsonResponse = options.jsonResponse;
+
+    const llmReply = await llmSubmit(this.toDictList(), this.aiClient, {
       jsonResponse,
       model,
       shotgun: options.shotgun,
@@ -239,10 +230,8 @@ export class GptConversation extends Array<ConversationMessage> {
       normalizedContent = content;
     } else if (Array.isArray(content)) {
       normalizedContent = content;
-    } else if (isRecord(content)) {
-      normalizedContent = JSON.stringify(content, null, 2);
     } else {
-      normalizedContent = String(content);
+      normalizedContent = JSON.stringify(content, null, 2);
     }
 
     this.push({ role, content: normalizedContent });
@@ -425,11 +414,11 @@ export class GptConversation extends Array<ConversationMessage> {
    * object `{}` if the last reply is not a record.
    */
   getLastReplyDict(): Record<string, unknown> {
-    if (!isRecord(this.lastReply)) {
+    try {
+      return JSON.parse(JSON.stringify(this.lastReply));
+    } catch (JSONError) {
       return {};
     }
-
-    return JSON.parse(JSON.stringify(this.lastReply));
   }
 
   /**
@@ -437,18 +426,19 @@ export class GptConversation extends Array<ConversationMessage> {
    *
    * @param fieldName - The key to look up in the last reply object.
    * @param defaultValue - Value to return when the field is absent or the
-   *   last reply is not a record. Defaults to `null`.
+   *   last reply is not a record. Defaults to `undefined`.
    * @returns The field value, or `defaultValue` if not found.
    */
   getLastReplyDictField(
     fieldName: string,
-    defaultValue: unknown = null
+    defaultValue: unknown = undefined
   ): unknown {
-    if (!isRecord(this.lastReply)) {
-      return null;
+    try {
+      const lastReplyDict = this.getLastReplyDict();
+      return lastReplyDict[fieldName] ?? defaultValue;
+    } catch {
+      return defaultValue;
     }
-
-    return this.lastReply[fieldName] ?? defaultValue;
   }
 
   /**

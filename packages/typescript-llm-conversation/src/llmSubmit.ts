@@ -21,9 +21,9 @@ import {
  * @property systemAnnouncementMessage - An optional system message prepended to
  *   every request, before all other messages.
  * @property retryLimit - Maximum number of retry attempts on recoverable errors.
- *   Defaults to {@link GPT_RETRY_LIMIT_DEFAULT}.
+ *   Defaults to {@link LLM_RETRY_LIMIT_DEFAULT}.
  * @property retryBackoffTimeSeconds - Seconds to wait between retries for
- *   recoverable API errors. Defaults to {@link GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT}.
+ *   recoverable API errors. Defaults to {@link LLM_RETRY_BACKOFF_TIME_SECONDS_DEFAULT}.
  * @property shotgun - When greater than 1, the request is sent to this many
  *   parallel worker calls and the results are reconciled by a final call.
  * @property warningCallback - Optional callback invoked with a human-readable
@@ -244,7 +244,7 @@ export const llmSubmit = async (
     preparedMessages.unshift({ role: 'system', content: systemAnnouncement });
   }
 
-  for (let index = 0; index < retryLimit; index += 1) {
+  for (let numTry = 0; numTry < retryLimit + 1; numTry += 1) {
     let llmReply = '';
 
     try {
@@ -261,11 +261,11 @@ export const llmSubmit = async (
           } else {
             // JSON response requested with a provided JSON schema for format enforcement.
             // It has to be the full text object, with a `format` field and everything.
-            payloadBody.text = options.jsonResponse;
+            payloadBody.text = JSON.parse(JSON.stringify(options.jsonResponse));
           }
         }
         let llmResponse = await openaiClient.responses!.create(payloadBody);
-        llmResponse = llmResponse.output_text.trim();
+        llmReply = llmResponse.output_text.trim();
 
         if (options.warningCallback) {
           if (llmResponse.error) {
@@ -300,7 +300,7 @@ export const llmSubmit = async (
         failedError = error;
         if (options.warningCallback) {
           options.warningCallback(
-            `JSON decode error:\n\n${error}.\n\nRaw text of LLM Reply:\n${llmReply}\n\nRetrying (attempt ${index + 1} of ${retryLimit}) immediately...`
+            `JSON decode error:\n\n${error}.\n\nRaw text of LLM Reply:\n${llmReply}\n\nRetrying (attempt ${numTry + 1} of ${retryLimit}) immediately...`
           );
         }
         continue;
@@ -310,7 +310,7 @@ export const llmSubmit = async (
         failedError = error;
         if (options.warningCallback) {
           options.warningCallback(
-            `LLM Provider (${llmProviderName}) API error:\n\n${error}.\n\nRetrying (attempt ${index + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`
+            `LLM Provider (${llmProviderName}) API error:\n\n${error}.\n\nRetrying (attempt ${numTry + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`
           );
         }
         // Sleep for retryBackoffTimeSeconds before the next retry attempt.
@@ -328,5 +328,5 @@ export const llmSubmit = async (
     throw failedError;
   }
 
-  throw new Error('Unknown error occurred in gptSubmit');
+  throw new Error('Unknown error occurred in llmSubmit');
 };
