@@ -44,7 +44,7 @@ const IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
   'A test schema for image identification response'
 );
 
-describe('GPT  (live API)', () => {
+describe('GPT integration (live API)', () => {
   it('should repeat Hello World', async () => {
     const openaiClient = createClient();
     const convo = new GptConversation(openaiClient);
