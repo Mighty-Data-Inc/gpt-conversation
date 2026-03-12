@@ -14,7 +14,6 @@ if str(SRC_DIR) not in sys.path:
 pkg = import_module("mightydatainc_llm_conversation")
 
 llm_submit = getattr(pkg, "llm_submit")
-GPT_MODEL_SMART = getattr(pkg, "GPT_MODEL_SMART")
 
 
 class FakeOpenAIResponse:
@@ -79,7 +78,7 @@ class TestGPTLlmSubmit(unittest.TestCase):
         self.assertEqual(result, "ok")
         self.assertEqual(len(client.responses.create_calls), 1)
         request = client.responses.create_calls[0]
-        self.assertEqual(request.get("model"), GPT_MODEL_SMART)
+        self.assertEqual(request.get("model"), "gpt-4.1")
         self.assertNotIn("text", request)
 
     def test_prepends_datetime_system_message_and_keeps_user_messages_after_it(self):

@@ -24,12 +24,9 @@ export const llmSubmitShotgun = async (
 ): Promise<
   string | Record<string, unknown> | unknown[] | number | boolean | null
 > => {
+  // Deep-copy the messages to ensure that parallel requests don't
+  // interfere with each other's conversation history.
   messages = JSON.parse(JSON.stringify(messages));
-  options = JSON.parse(JSON.stringify(options));
-
-  // Delete the shotgun option from the options passed to
-  // llmSubmitShotgun to avoid infinite recursion.
-  delete options.shotgun;
 
   if (numBarrels <= 1) {
     // No need for shotgun logic if only 1 barrel requested.
@@ -38,7 +35,8 @@ export const llmSubmitShotgun = async (
 
   // Remove the shotgun option before passing to llmSubmit to avoid
   // infinite recursion!
-  delete options.shotgun;
+  const optionsToPassToWorkers = { ...options };
+  delete optionsToPassToWorkers.shotgun;
 
   const convoShotgun: unknown[][] = [];
   for (let i = 0; i < numBarrels; i += 1) {
@@ -46,7 +44,9 @@ export const llmSubmitShotgun = async (
     convoShotgun.push(convoBarrel);
   }
   const resultsRaw: unknown[] = await Promise.all(
-    convoShotgun.map((convoBarrel) => llmSubmit(convoBarrel, aiClient, options))
+    convoShotgun.map((convoBarrel) =>
+      llmSubmit(convoBarrel, aiClient, optionsToPassToWorkers)
+    )
   );
   const resultStrings = resultsRaw.map((result) => JSON.stringify(result));
 
@@ -94,7 +94,7 @@ At least one of them must be wrong; don't fall into the same trap he did.
   // will be produced in the next step, where we will ask the model to produce
   // the same format as it was originally given (text or JSON).
   const sPonderReply = await llmSubmit(reconcileMessages, aiClient, {
-    ...options,
+    ...optionsToPassToWorkers,
     jsonResponse: undefined,
   });
   reconcileMessages.push({ role: 'assistant', content: sPonderReply });
@@ -110,5 +110,5 @@ you've gained from examining the workers' responses.
 `,
   });
 
-  return llmSubmit(reconcileMessages, aiClient, options);
+  return llmSubmit(reconcileMessages, aiClient, optionsToPassToWorkers);
 };

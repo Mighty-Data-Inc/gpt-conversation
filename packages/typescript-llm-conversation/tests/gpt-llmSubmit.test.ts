@@ -391,4 +391,29 @@ describe('GPT llmSubmit shotgun', () => {
     // f(3) - f(0) > f(6) - f(3), because f(0) lacks the overhead constant c.
     expect(delta3FromNoShotgun).toBeGreaterThan(delta3FromShotgun3);
   });
+
+  it('preserves warningCallback in shotgun mode when workers retry', async () => {
+    const warnings: string[] = [];
+    const client = new FakeOpenAIClient([
+      new OpenAIError('temporary'),
+      new FakeOpenAIResponse('worker ok 1'),
+      new FakeOpenAIResponse('worker ok 2'),
+      new FakeOpenAIResponse('ponder ok'),
+      new FakeOpenAIResponse('final ok'),
+    ]);
+
+    const result = await callSubmit(client, {
+      shotgun: 2,
+      retryLimit: 1,
+      retryBackoffTimeSeconds: 0,
+      warningCallback: (message: string) => warnings.push(message),
+    });
+
+    expect(result).toBeTypeOf('string');
+    expect(client.responses.createCalls.length).toBeGreaterThan(4);
+    // Intended behavior: shotgun should preserve warning callbacks, so retry
+    // warnings from worker calls are still emitted.
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings[0]).toContain('API error');
+  });
 });
