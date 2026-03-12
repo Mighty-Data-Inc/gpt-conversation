@@ -198,6 +198,84 @@ describe('JSONSchemaFormat', () => {
           },
         });
       });
+
+      it('supports [String, description, enumValues] as an enum shorthand', () => {
+        const result = JSONSchemaFormat({
+          mode: [String, 'Greek letters', ['alpha', 'beta', 'gamma']],
+        });
+
+        expect(result).toMatchObject({
+          format: {
+            schema: {
+              properties: {
+                mode: {
+                  type: 'string',
+                  enum: ['alpha', 'beta', 'gamma'],
+                  description: 'Greek letters',
+                },
+              },
+            },
+          },
+        });
+      });
+
+      it('supports ["string", description, enumValues] as an enum shorthand', () => {
+        const result = JSONSchemaFormat({
+          mode: ['string', 'Greek letters', ['alpha', 'beta', 'gamma']],
+        });
+
+        expect(result).toMatchObject({
+          format: {
+            schema: {
+              properties: {
+                mode: {
+                  type: 'string',
+                  enum: ['alpha', 'beta', 'gamma'],
+                  description: 'Greek letters',
+                },
+              },
+            },
+          },
+        });
+      });
+
+      it('supports [String, enumValues] as an enum shorthand', () => {
+        const result = JSONSchemaFormat({
+          mode: [String, ['alpha', 'beta', 'gamma']],
+        });
+
+        expect(result).toMatchObject({
+          format: {
+            schema: {
+              properties: {
+                mode: {
+                  type: 'string',
+                  enum: ['alpha', 'beta', 'gamma'],
+                },
+              },
+            },
+          },
+        });
+      });
+
+      it('supports ["string", enumValues] as an enum shorthand', () => {
+        const result = JSONSchemaFormat({
+          mode: ['string', ['alpha', 'beta', 'gamma']],
+        });
+
+        expect(result).toMatchObject({
+          format: {
+            schema: {
+              properties: {
+                mode: {
+                  type: 'string',
+                  enum: ['alpha', 'beta', 'gamma'],
+                },
+              },
+            },
+          },
+        });
+      });
     });
 
     describe('tuple arrays (type + description)', () => {

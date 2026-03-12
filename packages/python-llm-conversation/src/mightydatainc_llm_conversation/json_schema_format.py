@@ -82,8 +82,49 @@ def convert_schema_recursive(subschema: Any) -> dict[str, Any]:
             "enum": subschema,
         }
 
+    if len(subschema) > 3:
+        raise ValueError(
+            f"Invalid schema array: {_json_stringify(subschema)}. "
+            + "Extra values (more than 3) detected in subschema array."
+        )
+
     # It's not an enum; treat as tuple metadata format.
     retval = convert_schema_recursive(first_elem)
+
+    # If it's a string type, then it might still be a list/tuple expressed with metadata.
+    if retval.get("type") == "string":
+        potentialEnumValues: Any = None
+        potentialDescription: Any = None
+        if len(subschema) == 2:
+            # It might be an enum expressed as [str, ["a", "b", "c"]]
+            # For it to be an enum expressed in this way, then the other
+            # value *has to* be a list/tuple of strings.
+            potentialEnumValues = second_elem
+        else:
+            if isinstance(second_elem, str):
+                # It might be an enum expressed as [str, "desc", ["a", "b", "c"]]
+                potentialDescription = second_elem
+                potentialEnumValues = subschema[2]
+            else:
+                # It might be an enum expressed as [str, ["a", "b", "c"], "desc"]
+                potentialEnumValues = second_elem
+                potentialDescription = subschema[2]
+        if isinstance(potentialEnumValues, tuple):
+            potentialEnumValues = list(potentialEnumValues)
+        isPotentialDescriptionValid = potentialDescription is None or isinstance(
+            potentialDescription, str
+        )
+        isPotentialEnumValuesValid = (
+            isinstance(potentialEnumValues, list)
+            and len(potentialEnumValues) > 0
+            and all(isinstance(elem, str) for elem in potentialEnumValues)
+        )
+        if isPotentialDescriptionValid and isPotentialEnumValuesValid:
+            retval["enum"] = potentialEnumValues
+            potentialDescription = (potentialDescription or "").strip()
+            if potentialDescription:
+                retval["description"] = potentialDescription.strip()
+            return retval
 
     # The second element must be a string (or None in Python, representing
     # null/undefined parity from TypeScript).

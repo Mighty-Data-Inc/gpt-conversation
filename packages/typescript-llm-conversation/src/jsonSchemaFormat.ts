@@ -122,12 +122,57 @@ function convertSchemaRecursive(subschema: unknown): Record<string, unknown> {
     };
   }
 
-  // It's *not* an enum. Then it must be a tuple that includes a description
-  // and possibly min/max values.
-  // It *must* have exactly 2 elements, unless it's a numeric type, in which case it
-  // can have 3 elements if the last one is a min/max specifier.
+  if (subschema.length > 3) {
+    throw new Error(
+      `Invalid schema array: ${JSON.stringify(subschema)}. ` +
+        `Extra values (more than 3) detected in subschema array.`
+    );
+  }
+
+  // It's *not* an enum -- at least, not a simple one.
 
   const retval = convertSchemaRecursive(firstElem);
+
+  // If it's a string type, then it might still be a list/tuple expressed with metadata.
+  // Let's check.
+  if (retval.type === 'string') {
+    let potentialEnumValues: any = null;
+    let potentialDescription: any = null;
+    if (subschema.length === 2) {
+      // It might be an enum expressed as [str, ["a", "b", "c"]]
+      // For it to be an enum expressed in this way, then the other
+      // value *has to* be a list/tuple of strings.
+      potentialEnumValues = secondElem;
+    } else {
+      if (typeof secondElem === 'string') {
+        // It might be an enum expressed as [str, "desc", ["a", "b", "c"]]
+        potentialDescription = secondElem;
+        potentialEnumValues = subschema[2];
+      } else {
+        // It might be an enum expressed as [str, ["a", "b", "c"], "desc"]
+        potentialEnumValues = secondElem;
+        potentialDescription = subschema[2];
+      }
+    }
+    const isPotentialDescriptionValid =
+      potentialDescription === null || typeof potentialDescription === 'string';
+    const isPotentialEnumValuesValid =
+      Array.isArray(potentialEnumValues) &&
+      potentialEnumValues.length > 0 &&
+      potentialEnumValues.every((elem) => typeof elem === 'string');
+    if (isPotentialDescriptionValid && isPotentialEnumValuesValid) {
+      retval.enum = potentialEnumValues;
+      potentialDescription = (potentialDescription || '').trim();
+      if (potentialDescription) {
+        retval.description = potentialDescription.trim();
+      }
+      return retval;
+    }
+  }
+
+  // Now it must be a tuple that includes a description and possibly min/max values.
+  // It *must* have exactly 2 elements, unless it's a numeric type, in which case it
+  // can have 3 elements if the last one is a min/max specifier.
 
   // In either case, the second element *must* be a string.
   // (It can be null or undefined.)

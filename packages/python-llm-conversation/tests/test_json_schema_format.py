@@ -202,6 +202,52 @@ class TestJSONSchemaFormat(unittest.TestCase):
             resultSchema["properties"]["mode"]["enum"], ["alpha", "beta", "gamma"]
         )
 
+    def test_supports_type_description_enum_shorthand_with_constructor_type(self):
+        result = JSONSchemaFormat(
+            {"mode": [str, "Greek letters", ["alpha", "beta", "gamma"]]}
+        )
+        resultSchema = result["format"]["schema"]
+
+        self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
+        self.assertEqual(
+            resultSchema["properties"]["mode"]["description"], "Greek letters"
+        )
+        self.assertListEqual(
+            resultSchema["properties"]["mode"]["enum"], ["alpha", "beta", "gamma"]
+        )
+
+    def test_supports_type_description_enum_shorthand_with_string_type_token(self):
+        result = JSONSchemaFormat(
+            {"mode": ["string", "Greek letters", ["alpha", "beta", "gamma"]]}
+        )
+        resultSchema = result["format"]["schema"]
+
+        self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
+        self.assertEqual(
+            resultSchema["properties"]["mode"]["description"], "Greek letters"
+        )
+        self.assertListEqual(
+            resultSchema["properties"]["mode"]["enum"], ["alpha", "beta", "gamma"]
+        )
+
+    def test_supports_type_enum_shorthand_with_constructor_type(self):
+        result = JSONSchemaFormat({"mode": [str, ["alpha", "beta"]]})
+        resultSchema = result["format"]["schema"]
+
+        self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
+        self.assertListEqual(
+            resultSchema["properties"]["mode"]["enum"], ["alpha", "beta"]
+        )
+
+    def test_supports_type_enum_shorthand_with_string_type_token(self):
+        result = JSONSchemaFormat({"mode": ["string", ["alpha", "beta"]]})
+        resultSchema = result["format"]["schema"]
+
+        self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
+        self.assertListEqual(
+            resultSchema["properties"]["mode"]["enum"], ["alpha", "beta"]
+        )
+
     # array schema conversion - tuple arrays (type + description)
     def test_requires_second_tuple_element_to_be_description_string(self):
         with self.assertRaises(Exception):
