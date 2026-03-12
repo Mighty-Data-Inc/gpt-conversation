@@ -32,7 +32,7 @@ class FakeResponsesAPI:
         self.side_effects = list(side_effects or [])
         self.create_calls: list[dict[str, Any]] = []
 
-    def create(self, kwargs: dict[str, Any]):
+    def create(self, **kwargs: Any):
         self.create_calls.append(kwargs)
 
         if not self.side_effects:

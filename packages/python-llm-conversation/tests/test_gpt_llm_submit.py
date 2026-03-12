@@ -33,15 +33,8 @@ class FakeOpenAIResponsesAPI:
         self.side_effects = list(side_effects or [])
         self.create_calls: list[dict[str, Any]] = []
 
-    def create(self, *args: Any, **kwargs: Any):
-        if kwargs:
-            request = kwargs
-        elif args and isinstance(args[0], dict):
-            request = args[0]
-        else:
-            request = {}
-
-        self.create_calls.append(request)
+    def create(self, **kwargs: Any):
+        self.create_calls.append(kwargs)
 
         if not self.side_effects:
             return FakeOpenAIResponse()

@@ -17,10 +17,10 @@ if str(SRC_DIR) not in sys.path:
 dotenv_module = import_module("dotenv")
 dotenv_module.load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-if not OPENAI_API_KEY:
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+if not ANTHROPIC_API_KEY:
     raise RuntimeError(
-        "OPENAI_API_KEY is required for live API tests. Configure your test environment to provide it."
+        "ANTHROPIC_API_KEY is required for live API tests. Configure your test environment to provide it."
     )
 
 pkg = import_module("mightydatainc_llm_conversation")
@@ -32,8 +32,8 @@ get_model_name = getattr(providers, "get_model_name")
 
 
 def create_client() -> Any:
-    openai_module = import_module("openai")
-    return openai_module.OpenAI(api_key=OPENAI_API_KEY)
+    anthropic_module = import_module("anthropic")
+    return anthropic_module.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
@@ -63,14 +63,14 @@ IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
 )
 
 
-class TestGPTIntegration(unittest.TestCase):
+class TestClaudeIntegration(unittest.TestCase):
     def test_should_repeat_hello_world(self):
-        openai_client = create_client()
-        convo = LLMConversation(ai_client=openai_client)
+        anthropic_client = create_client()
+        convo = LLMConversation(ai_client=anthropic_client)
 
         convo.add_user_message(
             """
-This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.
+This is a test to see if I'm correctly calling the Anthropic API to invoke Claude.
 If you can see this, please respond with "Hello World" -- just like that,
 with no additional text or explanation. Do not include punctuation or quotation
 marks. Emit only the words "Hello World", capitalized as shown.
@@ -82,8 +82,8 @@ marks. Emit only the words "Hello World", capitalized as shown.
         self.assertEqual(reply, "Hello World")
 
     def test_should_invoke_llm_with_nominal_intelligence(self):
-        openai_client = create_client()
-        convo = LLMConversation(ai_client=openai_client)
+        anthropic_client = create_client()
+        convo = LLMConversation(ai_client=anthropic_client)
 
         # Test the submit_user_message convenience method.
         convo.submit_user_message(
@@ -102,12 +102,12 @@ please -- first letter capitalized, all other letters lower-case.
         self.assertEqual(reply, "Paris")
 
     def test_should_reply_with_general_form_json_object(self):
-        openai_client = create_client()
-        convo = LLMConversation(ai_client=openai_client)
+        anthropic_client = create_client()
+        convo = LLMConversation(ai_client=anthropic_client)
 
         convo.add_user_message(
             """
-This is a test to see if I'm correctly calling the OpenAI API to invoke GPT.
+This is a test to see if I'm correctly calling the Anthropic API to invoke Claude.
 
 Please reply with the following JSON object, exactly as shown:
 
@@ -140,8 +140,8 @@ Please reply with the following JSON object, exactly as shown:
         self.assertEqual(len(convo.get_last_reply_dict_field("sample_array_data")), 3)
 
     def test_should_reply_with_structured_json_using_json_schema_spec(self):
-        openai_client = create_client()
-        convo = LLMConversation(ai_client=openai_client)
+        anthropic_client = create_client()
+        convo = LLMConversation(ai_client=anthropic_client)
 
         schema = {
             "format": {
@@ -210,8 +210,8 @@ Nested dict (1 item long):
         self.assertEqual(sample_array_data[1], 33)
 
     def test_should_reply_with_structured_json_using_json_formatter_shorthand(self):
-        openai_client = create_client()
-        convo = LLMConversation(ai_client=openai_client)
+        anthropic_client = create_client()
+        convo = LLMConversation(ai_client=anthropic_client)
 
         schema = JSONSchemaFormat(
             {
@@ -258,34 +258,36 @@ Nested dict (1 item long):
         self.assertEqual(sample_array_data[1], 33)
 
     def test_should_perform_image_recognition_with_manual_content_message(self):
-        openai_client = create_client()
+        anthropic_client = create_client()
         convo = LLMConversation(
-            ai_client=openai_client,
-            model=get_model_name("openai", "vision"),
+            ai_client=anthropic_client,
+            model=get_model_name("anthropic", "vision"),
         )
 
         # Load the image ./fixtures/phoenix.png
         fixture_path = Path(__file__).resolve().parent / "fixtures" / "phoenix.png"
         img_base64 = base64.b64encode(fixture_path.read_bytes()).decode("ascii")
-        img_data_url = f"data:image/png;base64,{img_base64}"
 
-        gpt_msg_with_image = {
+        claude_msg_with_image = {
             "role": "user",
             "content": [
                 {
-                    "type": "input_text",
-                    "text": "An image submitted by a user, needing identification",
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": img_base64,
+                    },
                 },
                 {
-                    "type": "input_image",
-                    "image_url": img_data_url,
-                    "detail": "high",
+                    "type": "text",
+                    "text": "An image submitted by a user, needing identification",
                 },
             ],
         }
 
         # Build the multimodal message directly instead of using helper methods.
-        convo.append(gpt_msg_with_image)
+        convo.append(claude_msg_with_image)
         convo.add_user_message("What is this a picture of?")
 
         convo.submit(json_response=IMAGE_IDENTIFICATION_SCHEMA)
@@ -293,10 +295,10 @@ Nested dict (1 item long):
         self.assertEqual(convo.get_last_reply_dict_field("image_subject_enum"), "cat")
 
     def test_should_perform_image_recognition_with_convenience_methods(self):
-        openai_client = create_client()
+        anthropic_client = create_client()
         convo = LLMConversation(
-            ai_client=openai_client,
-            model=get_model_name("openai", "vision"),
+            ai_client=anthropic_client,
+            model=get_model_name("anthropic", "vision"),
         )
 
         # Load the image ./fixtures/phoenix.png
@@ -314,128 +316,6 @@ Nested dict (1 item long):
         convo.submit(json_response=IMAGE_IDENTIFICATION_SCHEMA)
 
         self.assertEqual(convo.get_last_reply_dict_field("image_subject_enum"), "cat")
-
-    def test_should_use_shotgun_for_reliability_on_unreliable_question(self):
-        # Large barrel count is intentional to make this live test less flaky.
-        num_shotgun_barrels = 10
-
-        openai_client = create_client()
-        convo = LLMConversation(ai_client=openai_client)
-
-        convo.add_developer_message(
-            """
-Count the number of times each letter of the alphabet appears in a key phrase
-that the user will give you.
-
-Ignore spaces, and treat all letters as lowercase for counting purposes.
-Do not count any characters other than the 26 letters of the English alphabet.
-
-Return a JSON object where each key is a lowercase letter and each
-value is the integer count of that letter. Include only letters that appear at least
-once. Emit nothing except the JSON object. E.g. it should look like this:
-
-{
-  "a": 99,
-  "b": 99,
-  "c": 99,
-  ...
-}
-
-Except, of course, with the correct counts for the letters instead of "99".
-Your response should include all 26 keys, appearing in order from "a" to "z",
-even if the count for some letters is zero.
-"""
-        )
-        convo.add_user_message("strawberry milkshake")
-
-        formatparam: dict[str, Any] = {
-            "scratchpad": [
-                str,
-                "An internal deliberation you can have with yourself about how to best answer "
-                + "the question. Use this as a whiteboard to work through your reasoning process. "
-                + "PRO TIP: Be very careful to not count any position twice. If you find that "
-                + "you're counting one letter for position n, and then counting another letter "
-                + "for position n, then one or both must be wrong.",
-            ],
-        }
-
-        for letter in "abcdefghijklmnopqrstuvwxyz":
-            formatparam[letter] = {
-                "count": int,
-                "locations": [
-                    str,
-                    "An explicit list of the places where you found this letter. "
-                    + "It should describe <count> distinct locations in the key phrase "
-                    + "where this letter appears. Actually write out the text at the "
-                    + "locations to prove that you found them, like this: "
-                    + '[position 2, the first "o" in "foo": f *o* o], '
-                    + '[position 3, the second "o" in "foo": f o *o*], ',
-                ],
-            }
-
-        convo_before_submit = convo.clone()
-
-        json_schema = JSONSchemaFormat(formatparam)
-        convo.submit(shotgun=num_shotgun_barrels, json_response=json_schema)
-
-        reply = convo.get_last_reply_dict()
-
-        # 26 letters + scratchpad
-        self.assertEqual(len(reply.keys()), 27)
-
-        expected_counts: dict[str, int] = {
-            "a": 2,
-            "b": 1,
-            "c": 0,
-            "d": 0,
-            "e": 2,
-            "f": 0,
-            "g": 0,
-            "h": 1,
-            "i": 1,
-            "j": 0,
-            "k": 2,
-            "l": 1,
-            "m": 1,
-            "n": 0,
-            "o": 0,
-            "p": 0,
-            "q": 0,
-            "r": 3,
-            "s": 2,
-            "t": 1,
-            "u": 0,
-            "v": 0,
-            "w": 1,
-            "x": 0,
-            "y": 1,
-            "z": 0,
-        }
-
-        observed_counts = {
-            letter: (reply.get(letter) or {}).get("count") for letter in expected_counts
-        }
-        self.assertEqual(observed_counts, expected_counts)
-
-        # Validate that non-shotgun mode is unreliable by requiring at least one miss.
-        results = [
-            convo_before_submit.clone().submit(json_response=json_schema)
-            for _ in range(num_shotgun_barrels)
-        ]
-
-        does_each_result_equal_expected: list[bool] = []
-        for result in results:
-            if not isinstance(result, dict):
-                does_each_result_equal_expected.append(False)
-                continue
-
-            observed = {
-                letter: (result.get(letter) or {}).get("count")
-                for letter in expected_counts
-            }
-            does_each_result_equal_expected.append(observed == expected_counts)
-
-        self.assertFalse(all(does_each_result_equal_expected))
 
 
 if __name__ == "__main__":

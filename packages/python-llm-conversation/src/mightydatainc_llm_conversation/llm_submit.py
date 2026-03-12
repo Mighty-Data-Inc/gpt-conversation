@@ -114,7 +114,7 @@ def llm_submit(
                         except Exception as error:
                             raise TypeError(str(error)) from error
 
-                llm_response = ai_client.responses.create(payload_body)
+                llm_response = ai_client.responses.create(**payload_body)
 
                 if not isinstance(getattr(llm_response, "output_text", None), str):
                     raise TypeError("OpenAI API response output_text must be a string")
@@ -180,15 +180,15 @@ def llm_submit(
                             "schema": payload_body["output_config"]["format"]["schema"],
                         }
 
-                llm_response = ai_client.messages.create(payload_body)
+                llm_response = ai_client.messages.create(**payload_body)
 
                 text_blocks = [
                     block
                     for block in llm_response.content
-                    if block.get("type") == "text"
+                    if getattr(block, "type", None) == "text"
                 ]
                 llm_reply = "".join(
-                    [block.get("text", "") for block in text_blocks]
+                    [f"{getattr(block, 'text', '')}" for block in text_blocks]
                 ).strip()
 
                 if (

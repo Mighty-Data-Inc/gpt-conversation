@@ -17,12 +17,18 @@ pkg = import_module("mightydatainc_llm_conversation")
 llm_submit = getattr(pkg, "llm_submit")
 
 
+class FakeAnthropicTextBlock:
+    def __init__(self, text: Any = ""):
+        self.type = "text"
+        self.text = text
+
+
 class FakeAnthropicResponse:
     def __init__(self, text: Any = "", stop_reason: str = "end_turn"):
         if text is None:
             self.content = None
         else:
-            self.content = [{"type": "text", "text": text}]
+            self.content = [FakeAnthropicTextBlock(text)]
         self.stop_reason = stop_reason
 
 
@@ -31,15 +37,8 @@ class FakeAnthropicMessagesAPI:
         self.side_effects = list(side_effects or [])
         self.create_calls: list[dict[str, Any]] = []
 
-    def create(self, *args: Any, **kwargs: Any):
-        if kwargs:
-            request = kwargs
-        elif args and isinstance(args[0], dict):
-            request = args[0]
-        else:
-            request = {}
-
-        self.create_calls.append(request)
+    def create(self, **kwargs: Any):
+        self.create_calls.append(kwargs)
 
         if not self.side_effects:
             return FakeAnthropicResponse()
