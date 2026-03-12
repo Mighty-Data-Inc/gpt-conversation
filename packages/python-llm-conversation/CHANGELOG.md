@@ -2,6 +2,13 @@
 
 All notable changes to this package will be documented in this file.
 
+## [1.0.3] - 2026-03-12
+
+### Fixed
+
+- Fixed the TypeScript CI/CD pipeline: removed `registry-url` from the `setup-node` action, which was writing an `.npmrc` that conflicted with npm Trusted Publisher OIDC auth and caused `npm publish` to fail with a 404.
+- Fixed test files being included in the published npm tarball by removing `tests/**/*` from `tsconfig.json` include paths.
+
 ## [1.0.2] - 2026-03-12
 
 ### Changed
