@@ -145,24 +145,12 @@ describe('LLMConversation', () => {
     ]);
   });
 
-  it('addImage appends a multi-modal message with text and image parts', () => {
+  it('addImage throws if no LLM provider is specified', () => {
     const conversation = new LLMConversation();
     const imgDataUrl = 'data:image/png;base64,abc123';
-
-    const returned = conversation.addImage(
-      'user',
-      'Describe this.',
-      imgDataUrl
-    );
-
-    expect(returned).toBe(conversation);
-    expect(conversation[0]).toEqual({
-      role: 'user',
-      content: [
-        { type: 'input_text', text: 'Describe this.' },
-        { type: 'input_image', image_url: imgDataUrl, detail: 'high' },
-      ],
-    });
+    expect(() =>
+      conversation.addImage('user', 'This is an image', imgDataUrl)
+    ).toThrow();
   });
 
   it('submit throws if no openai client is configured', async () => {

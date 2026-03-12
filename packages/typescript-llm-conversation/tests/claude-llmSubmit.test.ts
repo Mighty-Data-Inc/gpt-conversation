@@ -255,6 +255,7 @@ describe('Claude llmSubmit', () => {
       format: {
         type: 'json_schema',
         name: 'test_output',
+        description: 'A test JSON schema for output formatting',
         schema: {
           type: 'object',
           properties: { value: { type: 'number' } },
@@ -274,8 +275,13 @@ describe('Claude llmSubmit', () => {
 
     expect(result).toEqual({ value: 42 });
     const request = client.messages.createCalls[0];
+
     // Anthropic structured output uses output_config.format
-    expect(request.output_config).toEqual(schema);
+    // BUT! It strips out everything but "type" and "schema"!
+    const schemaExpected = JSON.parse(JSON.stringify(schema));
+    delete schemaExpected.format.name;
+    delete schemaExpected.format.description;
+    expect(request.output_config).toEqual(schemaExpected);
   });
 
   it('throws immediately if jsonResponse object cannot be JSONized', async () => {

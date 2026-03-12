@@ -236,9 +236,14 @@ export const llmSubmit = async (
           } else {
             // JSON response with a provided JSON schema for format enforcement.
             // Anthropic uses output_config.format with the schema.
+            // However, it doesn't allow anything other than "schema" in the format.
             payloadBody.output_config = JSON.parse(
               JSON.stringify(options.jsonResponse)
             );
+            payloadBody.output_config.format = {
+              type: 'json_schema',
+              schema: payloadBody.output_config.format.schema,
+            };
           }
         }
 

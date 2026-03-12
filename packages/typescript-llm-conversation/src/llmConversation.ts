@@ -291,22 +291,96 @@ export class LLMConversation extends Array<ConversationMessage> {
    * @returns `this`, for chaining.
    */
   addImage(role: string, text: string, imageDataUrl: string): this {
-    const gptMsgWithImage = {
-      role: role,
-      content: [
-        {
-          type: 'input_text',
-          text: text,
-        },
-        {
-          type: 'input_image',
-          image_url: imageDataUrl,
-          detail: 'high',
-        },
-      ],
-    };
-    this.push(gptMsgWithImage);
-    return this;
+    const llmProvider = this.LLMProvider;
+    if (!llmProvider) {
+      throw new Error(
+        'LLM provider cannot be identified. Please set an AI client with a supported provider.'
+      );
+    }
+    if (llmProvider === 'openai') {
+      const gptMsgWithImage = {
+        role: role,
+        content: [
+          {
+            type: 'input_text',
+            text: text,
+          },
+          {
+            type: 'input_image',
+            image_url: imageDataUrl,
+            detail: 'high',
+          },
+        ],
+      };
+      this.push(gptMsgWithImage);
+      return this;
+    }
+
+    if (llmProvider === 'anthropic') {
+      const trimmedImageDataUrl = imageDataUrl.trim();
+
+      let imageSource:
+        | { type: 'url'; url: string }
+        | { type: 'base64'; media_type: string; data: string };
+
+      if (/^https?:\/\//i.test(trimmedImageDataUrl)) {
+        imageSource = {
+          type: 'url',
+          url: trimmedImageDataUrl,
+        };
+      } else {
+        const dataUrlMatch = trimmedImageDataUrl.match(
+          /^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/i
+        );
+
+        if (!dataUrlMatch) {
+          throw new Error(
+            'Anthropic image input must be an HTTP(S) URL or a base64 data URL, such as data:image/png;base64,...'
+          );
+        }
+
+        let mediaType = dataUrlMatch[1].toLowerCase();
+        if (mediaType === 'image/jpg') {
+          mediaType = 'image/jpeg';
+        }
+
+        if (
+          !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(
+            mediaType
+          )
+        ) {
+          throw new Error(
+            `Unsupported Anthropic image media type: ${mediaType}. Supported types: image/jpeg, image/png, image/gif, image/webp.`
+          );
+        }
+
+        imageSource = {
+          type: 'base64',
+          media_type: mediaType,
+          data: dataUrlMatch[2].replace(/\s+/g, ''),
+        };
+      }
+
+      const anthropicMsgWithImage = {
+        role: role,
+        content: [
+          {
+            type: 'image',
+            source: imageSource,
+          },
+          {
+            type: 'text',
+            text: text,
+          },
+        ],
+      };
+      this.push(anthropicMsgWithImage);
+      return this;
+    }
+
+    throw new Error(
+      `LLM provider ${llmProvider} does not support image messages.`
+    );
   }
 
   /**
