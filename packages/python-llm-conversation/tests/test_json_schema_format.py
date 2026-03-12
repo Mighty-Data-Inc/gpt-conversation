@@ -209,10 +209,10 @@ class TestJSONSchemaFormat(unittest.TestCase):
         result = JSONSchemaFormat({"value": [float, None, [0, 10]]})
         resultSchema = result["format"]["schema"]
 
-        self.assertEqual(resultSchema["properties"]["value"]["type"], "string")
+        self.assertEqual(resultSchema["properties"]["value"]["type"], "number")
         self.assertNotIn("description", resultSchema["properties"]["value"])
-        self.assertEqual(resultSchema["properties"]["value"]["minValue"], "string")
-        self.assertEqual(resultSchema["properties"]["value"]["type"], "string")
+        self.assertEqual(resultSchema["properties"]["value"]["minValue"], 0)
+        self.assertEqual(resultSchema["properties"]["value"]["maxValue"], 10)
 
     def test_allows_empty_string_second_element_and_omits_description(self):
         result = JSONSchemaFormat({"value": [bool, ""]})
@@ -241,8 +241,8 @@ class TestJSONSchemaFormat(unittest.TestCase):
         self.assertEqual(
             resultSchema["properties"]["confidence"]["description"], "Confidence score"
         )
-        self.assertEqual(resultSchema["properties"]["confidence"]["minimum"], 0.0)
-        self.assertEqual(resultSchema["properties"]["confidence"]["maximum"], 1.0)
+        self.assertEqual(resultSchema["properties"]["confidence"]["minValue"], 0.0)
+        self.assertEqual(resultSchema["properties"]["confidence"]["maxValue"], 1.0)
 
     def test_supports_one_sided_bounds_with_null(self):
         result = JSONSchemaFormat(
@@ -257,25 +257,25 @@ class TestJSONSchemaFormat(unittest.TestCase):
 
         self.assertEqual(resultSchemaProps["min_only"]["type"], "number")
         self.assertEqual(resultSchemaProps["min_only"]["description"], "Minimum only")
-        self.assertEqual(resultSchemaProps["min_only"]["minimum"], 0)
-        self.assertNotIn("maximum", resultSchemaProps["min_only"])
+        self.assertEqual(resultSchemaProps["min_only"]["minValue"], 0)
+        self.assertNotIn("maxValue", resultSchemaProps["min_only"])
 
         self.assertEqual(resultSchemaProps["max_only"]["type"], "number")
         self.assertEqual(resultSchemaProps["max_only"]["description"], "Maximum only")
-        self.assertEqual(resultSchemaProps["max_only"]["maximum"], 10)
-        self.assertNotIn("minimum", resultSchemaProps["max_only"])
+        self.assertEqual(resultSchemaProps["max_only"]["maxValue"], 10)
+        self.assertNotIn("minValue", resultSchemaProps["max_only"])
 
         self.assertEqual(resultSchemaProps["no_bounds"]["type"], "number")
         self.assertEqual(resultSchemaProps["no_bounds"]["description"], "No bounds")
-        self.assertNotIn("minimum", resultSchemaProps["no_bounds"])
-        self.assertNotIn("maximum", resultSchemaProps["no_bounds"])
+        self.assertNotIn("minValue", resultSchemaProps["no_bounds"])
+        self.assertNotIn("maxValue", resultSchemaProps["no_bounds"])
 
         self.assertEqual(resultSchemaProps["no_bounds_null"]["type"], "number")
         self.assertEqual(
             resultSchemaProps["no_bounds_null"]["description"], "No bounds null"
         )
-        self.assertNotIn("minimum", resultSchemaProps["no_bounds_null"])
-        self.assertNotIn("maximum", resultSchemaProps["no_bounds_null"])
+        self.assertNotIn("minValue", resultSchemaProps["no_bounds_null"])
+        self.assertNotIn("maxValue", resultSchemaProps["no_bounds_null"])
 
     def test_rejects_malformed_numeric_third_element_shape(self):
         with self.assertRaises(Exception):
@@ -301,14 +301,14 @@ class TestJSONSchemaFormat(unittest.TestCase):
         self.assertEqual(resultSchema.get("type"), "array")
         self.assertEqual(resultSchema.get("items"), {"type": "string"})
 
-    def test_treats_integer_alias_as_numeric_type(self):
+    def test_treats_integer_alias_as_integer_type(self):
         result = JSONSchemaFormat({"count": ["integer", "Count", [1, 3]]})
         resultSchemaProps = result["format"]["schema"]["properties"]
 
-        self.assertEqual(resultSchemaProps["count"]["type"], "number")
+        self.assertEqual(resultSchemaProps["count"]["type"], "integer")
         self.assertEqual(resultSchemaProps["count"]["description"], "Count")
-        self.assertEqual(resultSchemaProps["count"]["minimum"], 1)
-        self.assertEqual(resultSchemaProps["count"]["maximum"], 3)
+        self.assertEqual(resultSchemaProps["count"]["minValue"], 1)
+        self.assertEqual(resultSchemaProps["count"]["maxValue"], 3)
 
     # string representations of primitive types
     def test_maps_primitive_string_tokens_to_json_schema_types(self):
@@ -326,7 +326,7 @@ class TestJSONSchemaFormat(unittest.TestCase):
 
         self.assertEqual(resultSchemaProps["s"]["type"], "string")
         self.assertEqual(resultSchemaProps["n"]["type"], "number")
-        self.assertEqual(resultSchemaProps["i"]["type"], "number")
+        self.assertEqual(resultSchemaProps["i"]["type"], "integer")
         self.assertEqual(resultSchemaProps["f"]["type"], "number")
         self.assertEqual(resultSchemaProps["b"]["type"], "boolean")
         self.assertEqual(resultSchemaProps["z"]["type"], "null")
