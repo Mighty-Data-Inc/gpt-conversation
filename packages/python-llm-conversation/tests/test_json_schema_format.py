@@ -1,11 +1,18 @@
+import sys
 import unittest
 from importlib import import_module
+from pathlib import Path
 
 
-JSONSchemaFormat = getattr(
-    import_module("mightydatainc_llm_conversation"),
-    "JSONSchemaFormat",
-)
+# Ensure `python -m unittest discover tests` works from package root without
+# requiring editable install by adding the local src layout to sys.path.
+SRC_DIR = Path(__file__).resolve().parents[1] / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+testmodule = import_module("mightydatainc_llm_conversation")
+
+JSONSchemaFormat = getattr(testmodule, "JSONSchemaFormat")
 
 
 class TestJSONSchemaFormat(unittest.TestCase):
@@ -170,6 +177,20 @@ class TestJSONSchemaFormat(unittest.TestCase):
         self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
         self.assertEqual(
             resultSchema["properties"]["mode"]["description"], "Mode description"
+        )
+
+    def test_attaches_a_description_to_an_enum(self):
+        result = JSONSchemaFormat(
+            {"mode": [["alpha", "beta", "gamma"], "Greek letters"]}
+        )
+        resultSchema = result["format"]["schema"]
+
+        self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
+        self.assertEqual(
+            resultSchema["properties"]["mode"]["description"], "Greek letters"
+        )
+        self.assertListEqual(
+            resultSchema["properties"]["mode"]["enum"], ["alpha", "beta", "gamma"]
         )
 
     # array schema conversion - tuple arrays (type + description)

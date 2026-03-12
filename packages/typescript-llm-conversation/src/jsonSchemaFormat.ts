@@ -19,11 +19,11 @@
 function convertSchemaRecursive(subschema: unknown): Record<string, unknown> {
   // First we handle the easy cases: primitive types and their string aliases.
   if (subschema === 'integer') {
-    // JavaScript doesn't distinguish between integers and floats,
-    // so this is equivalent to 'number' in JSON Schema. Versions in other languages
-    // that support this differentiation will detect Integer vs Float directly,
-    // and map them to 'integer' and 'number' respectively in the output JSON Schema.
-    return { type: 'number' };
+    // JavaScript doesn't distinguish between integers and floats inherently,
+    // but if the user explicitly uses the string 'integer', we take that to mean
+    // that they want to semantically convey that this value should be an integer,
+    // so we honor that.
+    return { type: 'integer' };
   }
   if (subschema === 'number' || subschema === 'float' || subschema === Number) {
     return { type: 'number' };

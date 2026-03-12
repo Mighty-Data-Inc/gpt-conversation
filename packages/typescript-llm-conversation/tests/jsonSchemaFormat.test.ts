@@ -178,6 +178,26 @@ describe('JSONSchemaFormat', () => {
           },
         });
       });
+
+      it('attaches a description to an enum', () => {
+        const result = JSONSchemaFormat({
+          mode: [['alpha', 'beta', 'gamma'], 'Greek letters'],
+        });
+
+        expect(result).toMatchObject({
+          format: {
+            schema: {
+              properties: {
+                mode: {
+                  type: 'string',
+                  enum: ['alpha', 'beta', 'gamma'],
+                  description: 'Greek letters',
+                },
+              },
+            },
+          },
+        });
+      });
     });
 
     describe('tuple arrays (type + description)', () => {
@@ -364,7 +384,7 @@ describe('JSONSchemaFormat', () => {
       });
     });
 
-    it('treats integer alias as numeric type in current JS implementation', () => {
+    it('treats integer alias as integer type', () => {
       const result = JSONSchemaFormat({ count: ['integer', 'Count', [1, 3]] });
 
       expect(result).toMatchObject({
@@ -372,7 +392,7 @@ describe('JSONSchemaFormat', () => {
           schema: {
             properties: {
               count: {
-                type: 'number',
+                type: 'integer',
                 description: 'Count',
                 minValue: 1,
                 maxValue: 3,
@@ -401,7 +421,7 @@ describe('JSONSchemaFormat', () => {
             properties: {
               s: { type: 'string' },
               n: { type: 'number' },
-              i: { type: 'number' },
+              i: { type: 'integer' },
               f: { type: 'number' },
               b: { type: 'boolean' },
               z: { type: 'null' },
