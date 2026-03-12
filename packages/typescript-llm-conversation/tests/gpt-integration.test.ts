@@ -318,66 +318,73 @@ that the user will give you.
 Ignore spaces, and treat all letters as lowercase for counting purposes.
 Do not count any characters other than the 26 letters of the English alphabet.
 
-Return a JSON object where each key is a lowercase letter and each
-value is the integer count of that letter. Include only letters that appear at least
-once. Emit nothing except the JSON object. E.g. it should look like this:
+Return a JSON object with the following structure:
 
 {
-  "a": 99,
-  "b": 99,
-  "c": 99,
-  ...
+  "scratchpad": string,
+  "lettercounts": {
+    "a": {
+      "locations": string[],
+      "count": number,
+    },
+    "b": {
+      "locations": string[],
+      "count": number,
+    },
+    "c": {
+      "locations": string[],
+      "count": number,
+    },
+    ...etc for all 26 letters...
+  },
+  "miscounts": string
 }
 
-Except, of course, with the correct counts for the letters instead of "99".
-Your response should include all 26 keys, appearing in order from "a" to "z",
-even if the count for some letters is zero.
+The fields in this JSON object are defined as follows:
+
+scratchpad: An internal deliberation you can have with yourself about how to best answer
+    the question. Use this as a whiteboard to work through your reasoning process. 
+    PRO TIP: Be very careful to not count any position twice. If you find that you're
+    counting one letter for position n, and then counting another letter for position n,
+    then one or both must be wrong.
+
+lettercounts: An object where each key is a letter of the English alphabet, and each value
+    is an object with two fields:
+    locations: An explicit list of the places where you found this letter. It should describe
+        <count> distinct locations in the key phrase where this letter appears. Actually write
+        out the text at the locations to prove that you found them, like this:
+        [position 2, the first "o" in "foo": f *o* o], 
+        [position 3, the second "o" in "foo": f o *o*], 
+        etc.
+        This will make it very easy to see if you mis-count, because if you highlight the
+        wrong letter, then you will clearly be able to see the mismatch.
+    count: The total number of times this letter appears in the key phrase.
+
+miscounts: A retrospective examination of the counts you just provided, with particular
+    attention to any letters where the location or position does not match the letter being
+    counted -- e.g. if you said something like [position 7, the second "b" in "s t r a w b *e* r r y"]
+    then you can clearly see that the letter you counted as "b" is not actually a "b".
 `);
     convo.addUserMessage('strawberry milkshake');
 
-    const formatparam: Record<string, unknown> = {
-      scratchpad: [
-        String,
-        'An internal deliberation you can have with yourself about how to best answer ' +
-          'the question. Use this as a whiteboard to work through your reasoning process. ' +
-          'PRO TIP: Be very careful to not count any position twice. If you find that ' +
-          "you're counting one letter for position n, and then counting another letter " +
-          'for position n, then one or both must be wrong.',
-      ],
+    const formatparam: any = {
+      scratchpad: String,
+      lettercounts: {},
+      miscounts: String,
     };
 
     for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
-      formatparam[letter] = {
+      formatparam['lettercounts'][letter] = {
+        locations: [String],
         count: Number,
-        locations: [
-          String,
-          'An explicit list of the places where you found this letter. ' +
-            'It should describe <count> distinct locations in the key phrase ' +
-            'where this letter appears. Actually write out the text at the ' +
-            'locations to prove that you found them, like this: ' +
-            '[position 2, the first "o" in "foo": f *o* o], ' +
-            '[position 3, the second "o" in "foo": f o *o*], ' +
-            'etc. This will make it very easy to see if you mis-count, ' +
-            'because if you highlight the wrong letter, then you will clearly ' +
-            'be able to see the mismatch.',
-        ],
       };
     }
-    formatparam.miscounts = [
-      String,
-      'A retrospective examination of the counts you just provided, with particular ' +
-        'attention to any letters where the location or position does not match the ' +
-        'letter being counted -- e.g. if you said something like ' +
-        '[position 7, the second "b" in "s t r a w b *e* r r y"] ' +
-        'then you can clearly see that the letter you counted as "b" ' +
-        'is not actually a "b".',
-    ];
 
     // Clone the convo to a "savepoint". This will allow us to validate its performance
     // against different run modalities.
     const convoBeforeSubmit = convo.clone();
 
-    // Without shotgunning, this fails >90% of the time.
+    // Without shotgunning, this fails about 30% of the time.
     // Notably, it fails a *different* way each time.
     // Because of this multivariate leverage, the shotgun approach
     // is astronomically more likely to get a perfect answer than
@@ -389,13 +396,7 @@ even if the count for some letters is zero.
       jsonResponse: jsonSchema,
     });
 
-    const reply = convo.getLastReplyDict() as Record<
-      string,
-      Record<string, number>
-    >;
-
-    // Make sure it has all 26 letters plus the scratchpad field, plus the miscounts field.
-    expect(Object.keys(reply)).toHaveLength(28);
+    const reply = convo.getLastReplyDict() as any;
 
     // strawberry milkshake
     // s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)
@@ -428,16 +429,20 @@ even if the count for some letters is zero.
       z: 0,
     };
     const observedCounts = Object.fromEntries(
-      Object.keys(expectedCounts).map((letter) => [letter, reply[letter].count])
+      Object.keys(expectedCounts).map((letter) => [
+        letter,
+        reply['lettercounts'][letter].count,
+      ])
     );
     expect(observedCounts).toEqual(expectedCounts);
 
     // We need to validate that it reliably fails without shotgunning to confirm that the shotgun
     // approach is actually necessary to get a consistent pass on this test. If it passes 100%
     // of the time without shotgunning, then this test isn't actually doing anything useful.
-    // Run NUM_SHOTGUN_BARRELS attempts in parallel (no shotgun) and assert that at least one fails.
+    // Run several attempts in parallel (no shotgun) and assert that at least one fails.
+    const NUM_FAILURE_TRIALS = 8;
     const results = await Promise.all(
-      Array.from({ length: NUM_SHOTGUN_BARRELS }, () =>
+      Array.from({ length: NUM_FAILURE_TRIALS }, () =>
         convoBeforeSubmit
           .clone()
           .submit(undefined, undefined, { jsonResponse: jsonSchema })
@@ -445,11 +450,16 @@ even if the count for some letters is zero.
     );
 
     const doesEachResultEqualExpected = results.map((result) => {
-      const r = result as Record<string, Record<string, number>>;
-      const observed = Object.fromEntries(
-        Object.keys(expectedCounts).map((letter) => [letter, r[letter].count])
+      const r = result as any;
+      const observedCounts = Object.fromEntries(
+        Object.keys(expectedCounts).map((letter) => [
+          letter,
+          r['lettercounts'][letter].count,
+        ])
       );
-      return JSON.stringify(observed) === JSON.stringify(expectedCounts);
+      const isCorrect =
+        JSON.stringify(observedCounts) === JSON.stringify(expectedCounts);
+      return isCorrect;
     });
 
     // Assert that at least one of the attempts failed to get the correct answer.
