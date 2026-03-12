@@ -1,12 +1,12 @@
-# mightydatainc-gpt-conversation
+# mightydatainc-llm-conversation
 
-Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
+Utilities for managing multi-shot LLM conversations and structured JSON responses in a provider-agnostic way, with current support for OpenAI and Anthropic clients.
 
 ## Purpose and Rationale
 
-This package exists to reduce the size, complexity, and repetitiveness of code used for interacting with LLM services -- specifically, with OpenAI's GPT.
+This package exists to reduce the size, complexity, and repetitiveness of code used for interacting with LLM services.
 
-OpenAI's Responses API is flexible, but application code often repeats the same plumbing:
+Provider SDKs are flexible, but application code often repeats the same plumbing:
 
 - message shaping and role management
 - retry and transient failure handling
@@ -19,44 +19,68 @@ This package gives you small, composable building blocks for those recurring con
 
 | Component          | Why it exists                                                                                                               | When to use it                                                                                           |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `gpt_submit`       | Centralizes a robust "submit messages and return reply" workflow, including retries and optional structured output parsing. | One-off prompts or service-layer functions where you already manage message history yourself.            |
-| `GptConversation`  | Wraps a message list with role-aware helpers and submit methods, so stateful chat flows stay readable and less error-prone. | Multi-turn workflows where you want to append/submit messages incrementally.                             |
+| `llm_submit`       | Centralizes a robust "submit messages and return reply" workflow, including retries and optional structured output parsing. | One-off prompts or service-layer functions where you already manage message history yourself.            |
+| `LLMConversation`  | Wraps a message list with role-aware helpers and submit methods, so stateful chat flows stay readable and less error-prone. | Multi-turn workflows where you want to append/submit messages incrementally.                             |
 | `JSONSchemaFormat` | Provides a compact Python DSL to describe structured output schemas without hand-writing large JSON Schema dictionaries.    | You need stricter contracts than "just return JSON" and want fields/types/ranges/enums defined up front. |
 
 ## Quick Start
 
-### Stateless Prompt Submission With `gpt_submit`
+### Stateless Prompt Submission With `llm_submit`
 
-Use this pattern as a wrapper around OpenAI's Responses API. gpt_submit provides error handling, "smart" retries, structured input/output type management, and shotgunning.
+Use this pattern as a wrapper around either provider client. `llm_submit` provides error handling, smart retries, structured input/output type management, and shotgunning.
 
 ```python
 from openai import OpenAI
-from mightydatainc_gpt_conversation import gpt_submit
+from mightydatainc_llm_conversation import llm_submit
 
 client = OpenAI()
 
-story = gpt_submit(
+story = llm_submit(
     messages=[
         {
             "role": "user",
             "content": "Write a short story about a raccoon who steals the Mona Lisa.",
         }
     ],
-    openai_client=client,
+    ai_client=client,
 )
+
 print(story)
 ```
 
-### Stateful Chat Flows With `GptConversation`
+### Stateless Prompt Submission With Claude (`anthropic`)
+
+The same helper works with an Anthropic client.
+
+```python
+import anthropic
+from mightydatainc_llm_conversation import llm_submit
+
+client = anthropic.Anthropic()
+
+reply = llm_submit(
+    messages=[
+        {
+            "role": "user",
+            "content": "Summarize the causes of the French Revolution.",
+        }
+    ],
+    ai_client=client,
+)
+
+print(reply)
+```
+
+### Stateful Chat Flows With `LLMConversation`
 
 Use this pattern when your application relies on multi-stage (multi-"shot") conversation flows, especially if any of the shots are conditional.
 
 ```python
 from openai import OpenAI
-from mightydatainc_gpt_conversation import GptConversation
+from mightydatainc_llm_conversation import LLMConversation
 
 client = OpenAI()
-conversation = GptConversation(openai_client=client)
+conversation = LLMConversation(ai_client=client)
 
 should_include_sidekick = True
 should_emphasize_character_development = True
@@ -111,11 +135,11 @@ print(story)
 
 ## JSON Response Mode and `JSONSchemaFormat`
 
-GPT has the ability to emit responses in JSON format -- and in fact, it even has the ability to enforce specific JSON schemas with concretely defined structures.
+Modern LLM providers can emit responses in JSON format and support schema-constrained structured output flows. This package is designed to remain provider-agnostic, with built-in handling for OpenAI and Anthropic today.
 
 This functionality is extremely valuable in integrating AI capabilities into traditional procedural workflows, but it's overlooked by many developers due in part to the syntactic complexity of its invocation. Instead, many developers tend to take much more fragile approaches, such as using string parsing (e.g. regexes and substring matching) to extract answers from LLM responses -- a technique that often ends up falling back on prompt engineering to beg, plead, cajole, bribe, or threaten the AI to please just produce a properly formatted reply. This package's JSON response mode capabilities are designed to make AI-integrated data processing feel more like software engineering and less like an Inquisitorial confession session.
 
-The function `gpt_submit` and the `GptConversation` class's `submit` method both take an optional named argument: `json_response`. This can be set simply to `True` for a "lazy" JSON response using a structure that's described in plain English, in the bodies of prior messages. Or, it can be set to a structured format description object (with the help of `JSONSchemaFormat`) to ensure that your output will be guaranteed to conform to a schema of your specification.
+The function `llm_submit` and the `LLMConversation` class's `submit` method both take an optional named argument: `json_response`. This can be set simply to `True` for a "lazy" JSON response using a structure that's described in plain English in the bodies of prior messages. Or, it can be set to a structured format description object (with the help of `JSONSchemaFormat`) to enforce a schema of your specification.
 
 ### Unenforced ("advisory") JSON response: `json_response=True`
 
@@ -123,10 +147,10 @@ The "lazy" approach to producing JSON output is to set the optional `json_respon
 
 ```python
 from openai import OpenAI
-from mightydatainc_gpt_conversation import GptConversation
+from mightydatainc_llm_conversation import LLMConversation
 
 client = OpenAI()
-conversation = GptConversation(openai_client=client)
+conversation = LLMConversation(ai_client=client)
 
 # The `submit*` methods actually send a real call to the LLM, and will
 # take a few seconds to run. When it's finished, the story will implicitly
@@ -176,18 +200,20 @@ Some caveats to keep in mind when using this approach:
 - The JSON structure is not enforced by any kind of calling framework. The LLM takes your JSON structure description "under advisement", but is not obligated to adhere to it in any way.
 - Particularly large or complex structures can cause the LLM to hang.
 
-### Structured JSON response with OpenAI json_schema: `json_response={"format": {...}}`
+### Structured JSON response (OpenAI example): `json_response={"format": {...}}`
 
-To ensure that the JSON output is always consistent with a desired schema, OpenAI's API allows you to specify structured outputs. The full specification can be found here:
+Structured-output schemas vary by provider. The example below uses OpenAI's `json_schema` format, but `json_response` is intentionally provider-facing so adapter logic can map to provider-specific payloads.
+
+OpenAI structured output reference:
 
 https://developers.openai.com/api/docs/guides/structured-outputs/
 
 ```python
 from openai import OpenAI
-from mightydatainc_gpt_conversation import GptConversation
+from mightydatainc_llm_conversation import LLMConversation
 
 client = OpenAI()
-conversation = GptConversation(openai_client=client)
+conversation = LLMConversation(ai_client=client)
 
 story = conversation.submit_user_message(
     "Write a short story about a raccoon who steals the Mona Lisa."
@@ -218,8 +244,8 @@ conversation.submit(
                     "number_of_theft_attempts": {
                         "type": "integer",
                         "description": "How many attempts at theft does the protagonist make during the course of the story?",
-                        "minValue": 0,
-                        "maxValue": 10,
+                        "minimum": 0,
+                        "maximum": 10,
                     },
                     "do_they_ultimately_succeed": {
                         "type": "boolean",
@@ -261,26 +287,25 @@ print(
 
 ### Structured JSON response with JSONSchemaFormat: `json_response=JSONSchemaFormat({...})`
 
-While OpenAI's calling conventions are powerful and flexible, they are not particularly laconic or human-readable. As such, this package provides a specialized helper function called `JSONSchemaFormat`, which provides a translation layer that allows you to provide a `json_response` argument in a convenient form of shorthand.
+While provider calling conventions are powerful and flexible, they are not particularly laconic or human-readable. As such, this package provides a specialized helper function called `JSONSchemaFormat`, which provides a translation layer that allows you to provide a `json_response` argument in a convenient form of shorthand.
 
 JSONSchemaFormat takes a data structure that "looks like" the structure you want returned. It's extremely flexible (to the point of being somewhat sloppy), and not quite as expressive as the real `json_schema` structure. However, it's much more compact and readable.
 
 How to use `JSONSchemaFormat` shorthand:
 
 - A field's value is simply the type that you want that field to be returned as. E.g. `"protagonist_name": str`
-- If a field's name isn't self-explanatory, it can be specified as a tuple of type and string, where the string is a description. E.g. `"city": (str, "What city does the story take place in?")`
-- If a field is a string, then a third field in the tuple can be a list specifying valid values. E.g. `"species": (str, "What is the species of the accomplice?", ["raccoon", "squirrel", "human", "pigeon", "other"])`
-- If a field is a number, then a third field in the tuple can be a 2-element tuple specifying min and max values (None means open-ended on one side). E.g. `"number_of_accomplices": (int, "How many accomplices did the protagonist have?", (0, 5))`
+- If a field's name isn't self-explanatory, it can be specified as a tuple containing type and string, where the string is a description. E.g. `"city": (str, "What city does the story take place in?")`
+- If a field is a string, then that tuple can include a list specifying valid values. E.g. `"species": (str, "What is the species of the accomplice?", ["raccoon", "squirrel", "human", "pigeon", "other"])`
+- If a field is a number, then that tuple can include a 2-element tuple specifying min and max values (`None` means open-ended on one side). E.g. `"number_of_accomplices": (int, "How many accomplices did the protagonist have?", (0, 5))`
 - To make a field's value be returned as a list, present that field's value as a list.
 - Fields can be objects, with this entire pattern nested multiple layers deep.
 
 ```python
 from openai import OpenAI
-from mightydatainc_gpt_conversation import GptConversation
-from mightydatainc_gpt_conversation.json_schema_format import JSONSchemaFormat
+from mightydatainc_llm_conversation import LLMConversation, JSONSchemaFormat
 
 client = OpenAI()
-conversation = GptConversation(openai_client=client)
+conversation = LLMConversation(ai_client=client)
 
 story = conversation.submit_user_message(
     "Write a short story about a raccoon who steals the Mona Lisa. "
@@ -295,10 +320,7 @@ conversation.submit(
     json_response=JSONSchemaFormat(
         {
             "protagonist_name": str,
-            "city": (
-                str,
-                "Where does this story take place?",
-            ),
+            "city": (str, "Where does this story take place?"),
             "number_of_theft_attempts": (
                 int,
                 "How many attempts do they make during the course of the story?",
@@ -332,6 +354,8 @@ conversation.submit(
     )
 )
 
+print(story)
+
 # Use the helper method `get_last_reply_dict_field(...)` to get the parsed JSON responses.
 print(
     "Protagonist: ",
@@ -350,27 +374,25 @@ print(
     conversation.get_last_reply_dict_field("do_they_ultimately_succeed"),
 )
 
-for accomplice in conversation.get_last_reply_dict_field("accomplices"):
-    species = accomplice["species"]
+for accomplice in conversation.get_last_reply_dict_field("accomplices") or []:
+    species = str(accomplice.get("species", ""))
     if species == "other":
-        species = accomplice["species_unusual"] + " (unusual)"
-    print(
-        f"Accomplice {accomplice['name']} is a {species}.",
-    )
+        species = str(accomplice.get("species_unusual", "")) + " (unusual)"
+    print(f"Accomplice {accomplice.get('name')} is a {species}.")
 ```
 
-Remember that, ultimately, `JSONSchemaFormat` is just a translation function. It produces a data structure that conforms to the JSON schema expected by the OpenAI API.
+Remember that, ultimately, `JSONSchemaFormat` is just a translation function. It produces a data structure that is converted into the schema format expected by the selected provider.
 
 ## Shotgunning
 
-The `gpt_submit` function and the `GptConversation` class's `submit` method take an optional `shotgun` argument. `shotgun` takes a numerical argument that specifies the number of "barrels" (parallel workers) to launch. Use this when you want to spend extra cost/latency for potentially better output quality.
+The `llm_submit` function and the `LLMConversation` class's `submit` method take an optional `shotgun` argument. `shotgun` takes a numerical argument that specifies the number of "barrels" (parallel workers) to launch. Use this when you want to spend extra cost/latency for potentially better output quality.
 
 ```python
 from openai import OpenAI
-from mightydatainc_gpt_conversation import GptConversation
+from mightydatainc_llm_conversation import LLMConversation
 
 client = OpenAI()
-conversation = GptConversation(openai_client=client)
+conversation = LLMConversation(ai_client=client)
 
 conversation.submit_user_message(
     "Write a short story about a raccoon who steals the Mona Lisa."
@@ -388,9 +410,9 @@ Shotgunning is particularly useful when you have a multi-component AI-related ta
 
 ## API
 
-### GptConversation
+### LLMConversation
 
-Stateful conversation container built on top of `gpt_submit`.
+Stateful conversation container built on top of `llm_submit`.
 
 What it does:
 
@@ -400,14 +422,13 @@ What it does:
 
 Initialization:
 
-- `openai_client`: OpenAI client (or compatible object) used for submissions.
+- `ai_client`: Provider client (or compatible object) used for submissions. Built-in adapters currently support OpenAI and Anthropic.
 - `messages`: Optional initial message list.
 - `model`: Optional default model used by `submit(...)` when no per-call model is provided.
 
 Core submission behavior:
 
-- `submit(...)` optionally appends a message, then calls `gpt_submit(...)` with current history.
-- If `message` is a `dict` containing `format` and `json_response` is not explicitly provided, that dict is used as `json_response`.
+- `submit(...)` optionally appends a message, then calls `llm_submit(...)` with current history.
 - Supports per-call `model`, `json_response`, and `shotgun` options.
 - Appends the final assistant reply back into conversation history and updates `last_reply`.
 
@@ -432,23 +453,23 @@ Inspection and utility methods:
 - `get_messages_by_role(role)`
 - `get_last_reply_str()`
 - `get_last_reply_dict()`
-- `get_last_reply_dict_field(fieldname, default=None)`
+- `get_last_reply_dict_field(field_name, default=None)`
 - `to_dict_list()`
 - `clone()`
 - `assign_messages(messages)`
 
 Failure behavior:
 
-- Raises `ValueError` if `submit(...)` is called without an `openai_client`.
-- Exceptions from `gpt_submit(...)` are propagated.
+- Raises `ValueError` if `submit(...)` is called without an `ai_client`.
+- Exceptions from `llm_submit(...)` are propagated.
 
-### gpt_submit
+### llm_submit
 
-Primary stateless submit helper for OpenAI Responses API calls.
+Primary stateless submit helper for provider API calls, with built-in adapters for OpenAI Responses API and Anthropic Messages API.
 
 What it does:
 
-- Submits a list of OpenAI-style messages and returns the model reply.
+- Submits a list of role/content messages and returns the model reply.
 - Injects a fresh `!DATETIME` system message on each call.
 - Optionally prepends a `system_announcement_message` before the datetime message.
 - Supports retry/backoff behavior for transient failures.
@@ -456,8 +477,8 @@ What it does:
 
 Arguments:
 
-- `messages`: Conversation payload in OpenAI message format.
-- `openai_client`: OpenAI client (or compatible object) exposing `responses.create(...)`.
+- `messages`: Conversation payload in provider-compatible role/content message format.
+- `ai_client`: Provider client compatible with current adapters (OpenAI: `responses.create(...)`; Anthropic: `messages.create(...)`).
 - `model`: Optional model override. Defaults to the package smart model.
 - `json_response`: Output mode control.
 - `system_announcement_message`: Optional additional top-level system instruction.
@@ -470,28 +491,27 @@ Arguments:
 
 - `None` or `False`: Return plain text.
 - `True`: Request JSON object mode (`{"format": {"type": "json_object"}}`).
-- `dict`: Use provided OpenAI text-format config.
-- `str`: Parse as JSON and use as OpenAI text-format config.
+- `dict`: Use provided provider-compatible structured-output config.
 
 Return value:
 
 - Text mode: `str` (trimmed).
-- JSON mode: parsed JSON value from the model output (commonly `dict` or `list`, but can also be scalar JSON values).
+- JSON mode: parsed JSON object from the model output.
 
 Failure behavior:
 
-- Retries transient `openai.OpenAIError` failures up to `retry_limit` with backoff.
+- Retries transient provider API failures up to `retry_limit` with backoff (built-in retry classifiers currently cover OpenAI/Anthropic SDK errors).
 - Retries JSON parsing failures in JSON mode.
-- Raises immediately (no retry) for authentication, permission, bad-request, and local protocol/header failures.
+- Raises immediately (no retry) for non-retryable protocol/request failures.
 
 ## Installation and usage
 
 ```bash
-pip install mightydatainc-gpt-conversation
+pip install mightydatainc-llm-conversation openai anthropic
 ```
 
 ```python
-import mightydatainc_gpt_conversation
+from mightydatainc_llm_conversation import llm_submit, LLMConversation, JSONSchemaFormat
 ```
 
 Requires Python `>=3.13`.
