@@ -25,6 +25,17 @@ def parse_first_json_value(input_text: str) -> Any:
             continue
 
         for end in range(start + 1, len(text) + 1):
+            last_char = text[end - 1]
+            # If first_char is {, then last_char must be }. If first_char is [, then last_char must be ].
+            is_worth_trying_to_parse = False
+            if (first_char == "{" and last_char == "}") or (
+                first_char == "[" and last_char == "]"
+            ):
+                is_worth_trying_to_parse = True
+
+            if not is_worth_trying_to_parse:
+                continue
+
             try:
                 return json.loads(text[start:end])
             except Exception:

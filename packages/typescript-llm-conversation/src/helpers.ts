@@ -38,6 +38,20 @@ export function parseFirstJsonValue(input: string): any {
     }
 
     for (let end = start + 1; end <= text.length; end += 1) {
+      const lastChar = text[end - 1];
+      // If firstChar is {, then lastChar must be }. If firstChar is [, then lastChar must be ].
+      let isWorthTryingToParse = false;
+      if (
+        (firstChar === '{' && lastChar === '}') ||
+        (firstChar === '[' && lastChar === ']')
+      ) {
+        isWorthTryingToParse = true;
+      }
+
+      if (!isWorthTryingToParse) {
+        continue;
+      }
+
       try {
         return JSON.parse(text.slice(start, end));
       } catch {
