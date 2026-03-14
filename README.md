@@ -4,7 +4,7 @@
 
 The project exists to remove repeated integration work from application teams. Instead of re-implementing conversation state, structured-output handling, and reliability controls in every codebase, this repository provides shared building blocks with provider-agnostic design.
 
-## Engineering Problems Addressed By This Toolkit
+## Purpose: Simplify Multi-Stage LLM Conversation State Management and Structured Output Queries
 
 - Application code needs deterministic behavior at boundaries where model output is probabilistic.
 - Conversation state handling, role sequencing, and request shaping are easy to get subtly wrong.
