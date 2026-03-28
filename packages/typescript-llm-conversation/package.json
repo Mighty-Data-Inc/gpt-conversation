@@ -1,6 +1,6 @@
 {
   "name": "@mightydatainc/llm-conversation",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Utilities for managing multi-shot conversations and structured data handling in LLM applications",
   "author": "Mikhail Voloshin",
   "license": "MIT",
@@ -15,14 +15,21 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
-    }
+      "require": "./dist-cjs/src/index.js",
+      "import": "./dist/src/index.js",
+      "node": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "dist-cjs"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('dist-cjs/package.json', '{\\\"type\\\":\\\"commonjs\\\"}\\n')\"",
     "test": "vitest run",
     "prepublishOnly": "npm run test && npm run build"
   },

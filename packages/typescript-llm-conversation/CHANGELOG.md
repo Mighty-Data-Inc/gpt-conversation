@@ -2,6 +2,17 @@
 
 All notable changes to this package will be documented in this file.
 
+## [1.0.6] - 2026-03-28
+
+### Fixed
+
+- Fixed package consumption in CommonJS backends by adding a CommonJS build output and wiring the `require` condition in package exports.
+- Fixed root package export compatibility for consumer resolvers by adding robust root export conditions.
+
+### Changed
+
+- Build now emits dual module formats (ESM and CommonJS) for broader downstream compatibility.
+
 ## [1.0.5] - 2026-03-12
 
 ### Changed

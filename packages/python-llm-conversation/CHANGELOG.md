@@ -2,6 +2,12 @@
 
 All notable changes to this package will be documented in this file.
 
+## [1.0.6] - 2026-03-28
+
+### Changed
+
+- Bumped Python package version to 1.0.6 to stay in sync with the TypeScript package release numbering.
+
 ## [1.0.5] - 2026-03-12
 
 ### Changed
