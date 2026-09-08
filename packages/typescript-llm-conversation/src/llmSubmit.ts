@@ -186,6 +186,13 @@ export const llmSubmit = async (
           model,
           input: preparedMessages,
         };
+        if (llmProviderName === 'deepseek') {
+          // DeepSeek uses reasoning by default, so we need to disable it.
+          // We do our own chain-of-thought, thankyouverymuch.
+          payloadBody.extraBody = { thinking: { type: 'disabled' } };
+          payloadBody.reasoningEffort = 'none'; // Not sure if this is valid. Might have to be "low".
+          payloadBody.reasoning = { effort: 'none' };
+        }
         if (options.jsonResponse) {
           if (typeof options.jsonResponse === 'boolean') {
             // Freeform JSON response requested, with no schema enforcement.

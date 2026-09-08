@@ -45,7 +45,7 @@ const IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
   'A test schema for image identification response'
 );
 
-describe('GPT integration (live API)', () => {
+describe('DeepSeek integration (live API)', () => {
   it('should repeat Hello World', async () => {
     const openaiClient = createClient();
     const convo = new LLMConversation(openaiClient);
@@ -318,10 +318,10 @@ Nested dict (1 item long):
       const tokenUsage: TokenUsage = openaiClient.tokenUsage;
 
       expect(tokenUsage).toBeDefined();
-      expect(tokenUsage.allModels.input).toBeGreaterThan(100);
-      expect(tokenUsage.allModels.input).toBeLessThan(200);
+      expect(tokenUsage.allModels.input).toBeGreaterThan(20);
+      expect(tokenUsage.allModels.input).toBeLessThan(100);
       expect(tokenUsage.allModels.output).toBeGreaterThan(700);
-      expect(tokenUsage.allModels.output).toBeLessThan(2000); // Wildly generous
+      expect(tokenUsage.allModels.output).toBeLessThan(1200);
       expect(tokenUsage.allModels.total).toEqual(
         tokenUsage.allModels.input + tokenUsage.allModels.output
       );
